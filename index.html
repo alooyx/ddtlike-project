@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tanks ECS - Modular</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- UI Layer -->
+    <div id="ui-layer">
+      <div>
+        <button onclick="window.changeWeapon('missile')">Míssil</button>
+        <button onclick="window.changeWeapon('nuke')">Nuke</button>
+        <button onclick="window.changeWeapon('drill')">Escavadeira</button>
+        <button
+          onclick="window.changeWeapon('custom_weapon')"
+          style="background: #663399"
+        >
+          🎨 Toaster
+        </button>
+      </div>
+      <div class="info">←/→ Mover | ↑/↓ Mirar | Espaço: Atirar (Segure)</div>
+    </div>
+
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+      <h3>🔍 DEBUG</h3>
+      <div id="debug-content">Carregando...</div>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Main Script -->
+    <script type="module">
+      import { Game } from "./game.js";
+
+      console.log("🎮 === INICIANDO JOGO ===");
+
+      const game = new Game();
+
+      // Inicializa e começa
+      game.init().then((success) => {
+        if (success) {
+          game.start();
+        } else {
+          alert("Erro ao carregar o jogo. Verifique o console (F12).");
+        }
+      });
+
+      // Expõe o game globalmente para debug
+      window.game = game;
+    </script>
+  </body>
+</html>

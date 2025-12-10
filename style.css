@@ -1,0 +1,142 @@
+/* style.css - TODOS OS ESTILOS DO JOGO */
+
+/* ========================================
+   RESET E BODY
+   ======================================== */
+body {
+  margin: 0;
+  background: #111;
+  overflow: hidden;
+  color: white;
+  font-family: sans-serif;
+}
+
+/* ========================================
+   CANVAS
+   ======================================== */
+canvas {
+  display: block;
+  margin: 0 auto;
+  background: #333;
+  border: 1px solid #555;
+}
+
+/* ========================================
+   UI LAYER (BOTÕES E INFO)
+   ======================================== */
+#ui-layer {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+}
+
+button {
+  padding: 8px 15px;
+  cursor: pointer;
+  font-weight: bold;
+  margin: 0 5px;
+  background: #444;
+  color: #fff;
+  border: 1px solid #666;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #666;
+}
+
+button:active {
+  background: #888;
+}
+
+.info {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* ========================================
+   DEBUG PANEL
+   ======================================== */
+#debug-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 10px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  font-size: 11px;
+  max-width: 250px;
+  font-family: "Courier New", monospace;
+}
+
+#debug-panel h3 {
+  margin: 0 0 5px 0;
+  font-size: 12px;
+  color: #0f0;
+}
+
+#debug-content div {
+  margin: 2px 0;
+  color: #ccc;
+}
+
+/* ========================================
+   POWER BAR (UI BOTTOM - DDTANK STYLE)
+   ======================================== */
+#ui-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 2px solid #555;
+  z-index: 20;
+}
+
+#power-bar-container {
+  position: relative;
+  width: 600px;
+  height: 30px;
+  background: #222;
+  border: 2px solid white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#power-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #ff3300, #ffcc00);
+  transition: width 0.1s linear;
+}
+
+.ruler-mark {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-left: 2px solid rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  padding-left: 4px;
+  line-height: 28px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+#angle-info {
+  color: white;
+  font-size: 20px;
+  margin-left: 20px;
+  font-weight: bold;
+  font-family: monospace;
+}

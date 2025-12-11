@@ -1,5 +1,3 @@
-// systems/RenderSystem.js
-
 import { WEAPON_DB } from "../../config.js";
 
 export class RenderSystem {
@@ -42,7 +40,7 @@ export class RenderSystem {
 
     const tanks = [];
     const projectiles = [];
-    const explosions = []; // 💥 ADICIONE ISTO
+    const explosions = []; // 💥 ARRAY DE EXPLOSÕES
 
     renderables.forEach((ent) => {
       const rend = ent.components.renderable;
@@ -144,14 +142,12 @@ export class RenderSystem {
       this.ctx.restore();
     });
 
-    this.ctx.restore();
-    // ... depois de desenhar tanks e projectiles ...
-
-    // 💥 ADICIONE ESTE LOOP:
+    // 💥 CORREÇÃO AQUI: LOOP DE EXPLOSÕES
     explosions.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
 
+      // USE "this.ctx" EM VEZ DE "ctx"
       this.ctx.save();
       this.ctx.translate(pos.x, pos.y);
 
@@ -182,6 +178,8 @@ export class RenderSystem {
 
       this.ctx.restore();
     });
+
+    this.ctx.restore();
 
     // HUD fixo
     const players = world.query(["playerControl"]);

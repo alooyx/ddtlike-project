@@ -1,4 +1,5 @@
 // systems/TerrainSystem.js - Sistema de Terreno e Explosões
+
 import { IMPACT_TYPES, WEAPON_DB } from "../../config.js";
 import {
   Position,
@@ -6,8 +7,7 @@ import {
   ExplosionComponent,
 } from "../../components.js";
 import { Tile } from "../../Maps/Tile.js";
-
-import { SpriteSheet, SpriteAnimation } from "../SpriteManager.js";
+import { SpriteSheet, SpriteAnimation } from "../../js/SpriteManager.js";
 
 export class TerrainSystem {
   constructor(gameMap, terrainCtx, world, spriteManager) {
@@ -15,9 +15,46 @@ export class TerrainSystem {
     this.terrainCtx = terrainCtx;
     this.world = world;
     this.spriteManager = spriteManager;
+    this.explosionSprites = new Map(); // 💥 Cache de sprites carregadas
+  }
+
+  // 💥 Pré-carrega sprites de explosão
+  async preloadExplosions() {
+    console.log("💥 Pré-carregando explosões...");
+
+    for (const [weaponId, weaponData] of Object.entries(WEAPON_DB)) {
+      if (weaponData.explosionSprite) {
+        const config = weaponData.explosionSprite;
+
+        // Verifica se já foi carregada
+        if (!this.explosionSprites.has(config.id)) {
+          const spriteSheet = new SpriteSheet(
+            config.path,
+            config.frameWidth,
+            config.frameHeight,
+            config.totalFrames,
+            config.fps
+          );
+
+          // Carrega AGORA (não assíncrono)
+          await spriteSheet.load();
+
+          this.explosionSprites.set(config.id, spriteSheet);
+          this.spriteManager.register(config.id, spriteSheet);
+
+          console.log(`✅ Explosão ${config.id} pré-carregada`);
+        }
+      }
+    }
   }
 
   applyImpact(x, y, impactId, weaponId) {
+    // 💥 ORDEM CORRETA: Cria explosão ANTES de cavar
+    const weaponStats = WEAPON_DB[weaponId];
+    if (weaponStats && weaponStats.explosionSprite) {
+      this.createExplosion(x, y, weaponStats.explosionSprite);
+    }
+
     console.log(
       `💥 TerrainSystem.applyImpact em (${Math.floor(x)}, ${Math.floor(
         y
@@ -42,44 +79,43 @@ export class TerrainSystem {
     this.terrainCtx.fill();
     this.terrainCtx.restore();
 
-    console.log(`✅ Explosão aplicada: raio ${data.radius}px`);
-
-    // 💥 CRIA ENTIDADE DE EXPLOSÃO
-    const weaponStats = WEAPON_DB[weaponId];
-    if (weaponStats && weaponStats.explosionSprite) {
-      this.createExplosion(x, y, weaponStats.explosionSprite);
-    }
+    console.log(
+      `✅ Explosão aplicada: raio ${data.radius}px em (${Math.floor(
+        x
+      )}, ${Math.floor(y)})`
+    );
   }
 
-  // 💥 Cria explosão visual
+  // 💥 Cria explosão visual (SÍNCRONO)
   createExplosion(x, y, explosionConfig) {
-    console.log(`💥 Criando explosão em (${x}, ${y})`);
+    console.log(
+      `💥 Criando explosão INSTANTÂNEA em (${Math.floor(x)}, ${Math.floor(y)})`
+    );
 
-    // Carrega sprite se ainda não foi carregada
-    let spriteSheet = this.spriteManager.get(explosionConfig.id);
+    // Usa sprite já carregada do cache
+    let spriteSheet = this.explosionSprites.get(explosionConfig.id);
 
     if (!spriteSheet) {
-      // Registra a sprite de explosão
-      spriteSheet = new SpriteSheet(
-        explosionConfig.path,
-        explosionConfig.frameWidth,
-        explosionConfig.frameHeight,
-        explosionConfig.totalFrames,
-        explosionConfig.fps
-      );
-
-      // Carrega assíncrono
-      spriteSheet.load().then(() => {
-        console.log(`✅ Sprite de explosão carregada: ${explosionConfig.id}`);
-      });
-
-      this.spriteManager.register(explosionConfig.id, spriteSheet);
+      // Fallback: tenta pegar do spriteManager
+      spriteSheet = this.spriteManager.get(explosionConfig.id);
     }
 
-    // Cria entidade de explosão
+    if (!spriteSheet || !spriteSheet.loaded) {
+      console.warn(
+        `⚠️ Explosão ${explosionConfig.id} não carregada! Pulando animação.`
+      );
+      return;
+    }
+
+    // Cria entidade de explosão NO MESMO FRAME
     const explosion = this.world.createEntity();
 
-    this.world.addComponent(explosion, "position", Position(x, y));
+    // 💥 POSIÇÃO EXATA onde o projétil colidiu
+    this.world.addComponent(
+      explosion,
+      "position",
+      Position(Math.floor(x), Math.floor(y))
+    );
 
     // Animação que NÃO loopa
     const animation = new SpriteAnimation(spriteSheet, false);
@@ -96,6 +132,8 @@ export class TerrainSystem {
       ExplosionComponent(explosionConfig.duration)
     );
 
-    console.log(`✅ Explosão criada com duração ${explosionConfig.duration}ms`);
+    console.log(
+      `✅ Explosão criada IMEDIATAMENTE em (${Math.floor(x)}, ${Math.floor(y)})`
+    );
   }
 }

@@ -70,29 +70,54 @@ export class Game {
     console.log("🎨 Carregando sprites...");
 
     const spritesToLoad = [];
+    const loadedIDs = new Set(); // Evita carregar a mesma imagem 2x
 
     for (const [weaponId, weaponData] of Object.entries(WEAPON_DB)) {
+      // 1. Carrega Sprite do Projétil (A bala voando)
       if (weaponData.spriteId && weaponData.sprite) {
-        spritesToLoad.push({
-          id: weaponData.spriteId,
-          path: weaponData.sprite.path,
-          frameWidth: weaponData.sprite.frameWidth,
-          frameHeight: weaponData.sprite.frameHeight,
-          totalFrames: weaponData.sprite.totalFrames,
-          fps: weaponData.sprite.fps || 10,
-        });
+        if (!loadedIDs.has(weaponData.spriteId)) {
+          spritesToLoad.push({
+            id: weaponData.spriteId,
+            path: weaponData.sprite.path,
+            frameWidth: weaponData.sprite.frameWidth,
+            frameHeight: weaponData.sprite.frameHeight,
+            totalFrames: weaponData.sprite.totalFrames,
+            fps: weaponData.sprite.fps || 10,
+          });
+          loadedIDs.add(weaponData.spriteId);
+        }
+      }
+
+      // 2. 💥 Carrega Sprite da Explosão (O Boom) - CORREÇÃO AQUI
+      if (weaponData.explosionSprite) {
+        const expl = weaponData.explosionSprite;
+        // Só adiciona se ainda não carregamos esse ID (para não duplicar)
+        if (!loadedIDs.has(expl.id)) {
+          spritesToLoad.push({
+            id: expl.id,
+            path: expl.path,
+            frameWidth: expl.frameWidth,
+            frameHeight: expl.frameHeight,
+            totalFrames: expl.totalFrames,
+            fps: expl.fps || 20,
+          });
+          loadedIDs.add(expl.id);
+          console.log(`🧨 Explosão detectada na fila: ${expl.id}`);
+        }
       }
     }
 
     if (spritesToLoad.length > 0) {
       try {
         await this.spriteManager.loadMultiple(spritesToLoad);
-        console.log(`✅ ${spritesToLoad.length} sprite(s) carregada(s)`);
+        console.log(
+          `✅ ${spritesToLoad.length} sprite(s) carregada(s) (incluindo explosões)`
+        );
       } catch (err) {
         console.warn("⚠️ Erro ao carregar sprites:", err);
       }
     } else {
-      console.log("ℹ️ Nenhuma sprite configurada");
+      console.log("ℹ️ Nenhuma sprite configurada para carregar.");
     }
   }
 

@@ -14,7 +14,7 @@ export class RenderSystem {
     const deltaTime = currentTime - this.lastTime;
     this.lastTime = currentTime;
 
-    // Atualiza câmera
+    // 1. Atualiza câmera (Suavização)
     const focusTargets = world.query(["position", "cameraFocus"]);
     if (focusTargets.length > 0) {
       const target = focusTargets[0].components.position;
@@ -26,21 +26,65 @@ export class RenderSystem {
         (target.y - this.mainCanvas.height / 2 - this.camera.y) * smoothing;
     }
 
+    // ============================================================
+    // 🌍 SISTEMA DE TREMOR OTIMIZADO (TRAUMA & DECAY)
+    // ============================================================
+    // Em vez de somar tremores, calculamos a maior intensidade atual.
+
+    let currentShakeIntensity = 0;
+    const activeExplosions = world.query(["explosion", "renderable"]);
+
+    activeExplosions.forEach((ent) => {
+      const rend = ent.components.renderable;
+      const anim = rend.animation;
+
+      if (anim) {
+        // Calcula progresso da animação (0.0 a 1.0)
+        const totalFrames =
+          (anim.spriteSheet && anim.spriteSheet.totalFrames) ||
+          anim.totalFrames ||
+          10;
+        const progress = anim.currentFrame / totalFrames;
+
+        // Decaimento: Tremor forte no início (1.0), zero no final (0.0)
+        const decay = Math.max(0, 1 - progress);
+
+        // Força Base: Explosões maiores (Scale alto) tremem mais!
+        // Scale 0.8 = Força 16 | Scale 2.0 = Força 40
+        const baseForce = 20 * (rend.scale || 1.0);
+
+        // Math.max: Pega apenas o tremor mais forte da cena (evita bugs de soma infinita)
+        currentShakeIntensity = Math.max(
+          currentShakeIntensity,
+          baseForce * decay
+        );
+      }
+    });
+
+    let shakeX = 0;
+    let shakeY = 0;
+
+    // Aplica o tremor se houver intensidade
+    if (currentShakeIntensity > 0.5) {
+      shakeX = (Math.random() - 0.5) * currentShakeIntensity;
+      shakeY = (Math.random() - 0.5) * currentShakeIntensity;
+    }
+    // ============================================================
+
     this.ctx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
     this.ctx.save();
 
-    // Aplica câmera
-    this.ctx.translate(-this.camera.x, -this.camera.y);
+    // Aplica Câmera + Tremor
+    this.ctx.translate(-this.camera.x + shakeX, -this.camera.y + shakeY);
 
-    // 1. Desenha terreno
+    // 2. Desenha terreno
     this.ctx.drawImage(this.terrainCanvas, 0, 0);
 
-    // 2. Desenha entidades (ordem correta)
+    // 3. Organiza entidades para desenhar na ordem (z-index manual)
     const renderables = world.query(["position", "renderable"]);
-
     const tanks = [];
     const projectiles = [];
-    const explosions = []; // 💥 ARRAY DE EXPLOSÕES
+    const explosions = [];
 
     renderables.forEach((ent) => {
       const rend = ent.components.renderable;
@@ -53,7 +97,7 @@ export class RenderSystem {
       }
     });
 
-    // Desenha tanks (com arma atrás)
+    // 4. Desenha TANKS
     tanks.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
@@ -62,7 +106,6 @@ export class RenderSystem {
       this.ctx.save();
       this.ctx.translate(pos.x, pos.y);
 
-      // 1. Arma primeiro
       if (ctrl) {
         const weaponStats = WEAPON_DB[ctrl.weaponId];
         if (weaponStats && weaponStats.weaponSprite) {
@@ -70,9 +113,7 @@ export class RenderSystem {
         }
       }
 
-      // 2. Corpo
       this.ctx.fillStyle = rend.color;
-
       if (ctrl && !ctrl.facingRight) {
         this.ctx.scale(-1, 1);
       }
@@ -81,7 +122,6 @@ export class RenderSystem {
       this.ctx.fillStyle = "blue";
       this.ctx.fillRect(-2, 0, 4, 4);
 
-      // 3. Mira
       if (ctrl) {
         this.drawAim(ctrl, ctrl.facingRight);
       }
@@ -89,7 +129,7 @@ export class RenderSystem {
       this.ctx.restore();
     });
 
-    // Desenha projéteis
+    // 5. Desenha PROJÉTEIS
     projectiles.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
@@ -100,7 +140,6 @@ export class RenderSystem {
       if (rend.type === "sprite") {
         const animation = rend.animation;
         animation.update(deltaTime);
-
         const frameData = animation.getCurrentFrame();
 
         if (frameData) {
@@ -142,25 +181,39 @@ export class RenderSystem {
       this.ctx.restore();
     });
 
-    // 💥 CORREÇÃO AQUI: LOOP DE EXPLOSÕES
+    // 6. Desenha EXPLOSÕES (Loop Estilo Arcade)
     explosions.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
 
-      // USE "this.ctx" EM VEZ DE "ctx"
       this.ctx.save();
       this.ctx.translate(pos.x, pos.y);
 
       if (rend.type === "sprite") {
         const animation = rend.animation;
         animation.update(deltaTime);
-
         const frameData = animation.getCurrentFrame();
 
         if (frameData) {
           const scale = rend.scale || 1.0;
-          const drawWidth = frameData.sw * scale;
-          const drawHeight = frameData.sh * scale;
+
+          // Micro-Pop: Aumenta 15% nos primeiros frames para dar impacto visual instantâneo
+          let impactBonus = 1.0;
+          if (animation.currentFrame <= 1) {
+            impactBonus = 1.15;
+          }
+
+          const finalScale = scale * impactBonus;
+          const drawWidth = frameData.sw * finalScale;
+          const drawHeight = frameData.sh * finalScale;
+
+          // Centralização precisa
+          let drawX = -drawWidth / 2;
+          let drawY = -drawHeight / 2;
+
+          // Ajuste de offset manual (se houver no config)
+          if (rend.offsetX) drawX += rend.offsetX * impactBonus;
+          if (rend.offsetY) drawY += rend.offsetY * impactBonus;
 
           this.ctx.drawImage(
             frameData.image,
@@ -168,8 +221,8 @@ export class RenderSystem {
             frameData.sy,
             frameData.sw,
             frameData.sh,
-            -drawWidth / 2,
-            -drawHeight / 2,
+            drawX,
+            drawY,
             drawWidth,
             drawHeight
           );
@@ -181,7 +234,7 @@ export class RenderSystem {
 
     this.ctx.restore();
 
-    // HUD fixo
+    // 7. HUD e Debug (Não afetados pelo Shake)
     const players = world.query(["playerControl"]);
     if (players.length > 0) {
       this.drawHUD(players[0].components.playerControl);

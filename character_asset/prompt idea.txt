@@ -1,0 +1,54 @@
+👀 OLHOS (Eyes)
+Chibi character eye variations sprite sheet, 8 different styles matching the reference image. Large anime eyes with multiple shine highlights, thick black outlines, expressive and cute. Styles: happy, surprised, sleepy, angry, sparkly, determined, sad, winking. Each eye pair shown separately on transparent background. Flat colors, cel-shaded, game UI asset style. Clean separation between each variation.
+Versão simplificada:
+8 different chibi anime eyes, large and sparkly with thick black outlines, various emotions, transparent background, game sprite assets
+
+👄 BOCA (Mouth)
+Chibi character mouth expressions sprite sheet, 8 variations matching the reference style. Small simple mouths: happy smile, open laugh, sad frown, surprised O-shape, tiny dot, smirk, pout, tongue out. Thick black outlines, minimal detail, cute and expressive. Each mouth shown separately on transparent background. Game UI assets, flat colors.
+Versão simplificada:
+8 chibi mouth expressions, small and simple with thick outlines, various emotions, transparent background, game sprite style
+
+💎 BRINCOS/ACESSÓRIOS (Earrings/Accessories)
+Chibi character earring and accessory set, 10 variations: small stud earrings, hoop earrings, star earrings, heart earrings, flower hair clips, bows, headbands, small hat accessories, glasses, hair ribbons. Cute kawaii style with thick black outlines, flat colors, small scale to fit chibi proportions. Transparent background, game cosmetic items.
+
+🎩 CHAPÉUS (Hats)
+Chibi character hat collection matching reference style, 8 variations: baseball cap (front and back), wizard hat with stars, flower crown, animal ear headband, beret, top hat, sun hat, beanie. Designed to fit oversized chibi head proportions. Thick black outlines, vibrant flat colors, cel-shaded. Transparent background, game cosmetic assets, front view angle.
+Para chapéus específicos:
+Chibi wizard hat with star pattern, blue and purple colors, thick black outline, designed for large chibi head, transparent background, game asset
+
+👕 ROUPA + SAPATO (Outfit + Shoes Set)
+Chibi character complete outfit set matching reference style: [THEME] costume. Includes top/shirt, bottom/pants or skirt, and matching shoes. Flat lay view showing all pieces separately. Thick black outlines, vibrant colors, cel-shaded style, designed for small chibi body proportions. Transparent background, game paperdoll system assets. Simple and cute design.
+Exemplos de [THEME]:
+
+casual everyday → camiseta + jeans + tênis
+fantasy adventure → armadura + botas
+school uniform → blazer + saia + sapatos
+wizard/mage → túnica + botas místicas
+street fashion → hoodie + calças cargo + sneakers
+
+Versão específica (baseada no seu exemplo do mago):
+Chibi wizard costume set: long blue robe with star pattern, purple inner lining, pointed wizard boots with stars. Flat lay view, all pieces separated, thick black outlines, designed for small chibi body, transparent background, game cosmetic asset
+
+👖 CALÇA OU SHORTS (Pants/Shorts Only)
+Chibi character bottom wear collection, 8 variations: denim shorts, cargo pants, skirt, dress bottom, ripped jeans, athletic shorts, overalls, leggings. Each item shown flat lay, designed for tiny chibi legs. Thick black outlines, various colors, cel-shaded. Transparent background, game clothing assets.
+
+🎨 TEMPLATE UNIVERSAL (Use com sua foto):
+Quando você enviar a foto + prompt, use este formato:
+[Sua descrição do asset] matching the chibi art style from the reference image. Same proportions, same thick black outline style, same color vibrancy, same cute aesthetic. Designed for paperdoll/layering system. Transparent background, game sprite asset.
+
+📋 PROMPT COMPLETO PARA CONJUNTO MODULAR:
+Chibi character customization asset sheet matching reference style. Organized sections: 
+- Eyes: 6 expression variations
+- Mouths: 6 emotion variations  
+- Hats: 4 different styles
+- Outfits: 4 complete costume sets with shoes
+- Accessories: earrings, bows, glasses
+
+All items with thick black outlines, vibrant flat colors, designed for small chibi proportions. Clean organized layout on white background. Game UI character creator assets.
+
+💡 DICA IMPORTANTE:
+Quando for usar Imagen 3 com a foto de referência:
+
+Upload a foto primeiro
+Depois adicione: "Create [asset type] matching this exact art style and proportions"
+Seja específico: "Use the same thick black outline width, same color saturation, same chibi head-to-body ratio"

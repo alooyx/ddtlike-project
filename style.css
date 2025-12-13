@@ -1,4 +1,4 @@
-/* style.css - TODOS OS ESTILOS DO JOGO */
+/* style.css - VERSÃO COMPLETA E FINAL */
 
 /* ========================================
    RESET E BODY
@@ -16,21 +16,31 @@ body {
    ======================================== */
 canvas {
   display: block;
-  margin: 0 auto;
   background: #333;
-  border: 1px solid #555;
 }
 
 /* ========================================
-   UI LAYER (BOTÕES E INFO)
+   CONTAINER DO JOGO
    ======================================== */
-#ui-layer {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+#game-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #000;
+  user-select: none;
+  overflow: hidden;
+  border: 2px solid #444;
+}
+
+/* ========================================
+   MENU DE ARMAS (Topo)
+   ======================================== */
+#weapons-menu {
   text-align: center;
-  z-index: 10;
+  padding: 10px;
+  background: #222;
+  border-bottom: 1px solid #444;
 }
 
 button {
@@ -42,15 +52,17 @@ button {
   color: #fff;
   border: 1px solid #666;
   border-radius: 4px;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
 }
 
 button:hover {
   background: #666;
+  transform: translateY(-2px);
 }
 
 button:active {
   background: #888;
+  transform: translateY(0);
 }
 
 .info {
@@ -60,83 +72,259 @@ button:active {
 }
 
 /* ========================================
-   DEBUG PANEL
+   INTERFACE DENTRO DO JOGO (HUD)
    ======================================== */
-#debug-panel {
+#ui-layer {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 10px;
-  border: 1px solid #666;
-  border-radius: 4px;
-  font-size: 11px;
-  max-width: 250px;
-  font-family: "Courier New", monospace;
-}
-
-#debug-panel h3 {
-  margin: 0 0 5px 0;
-  font-size: 12px;
-  color: #0f0;
-}
-
-#debug-content div {
-  margin: 2px 0;
-  color: #ccc;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Deixa clicar no jogo através da UI */
+  z-index: 10;
 }
 
 /* ========================================
-   POWER BAR (UI BOTTOM - DDTANK STYLE)
+   BARRA DE FORÇA (POWER)
    ======================================== */
-#ui-bottom {
+.power-wrapper {
+  position: absolute;
+  bottom: 50px; /* Acima da régua */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 5px 15px;
+  border-radius: 10px;
+}
+
+.power-label {
+  color: #fff;
+  font-weight: bold;
+  text-shadow: 2px 2px 0 #000;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.power-track {
+  flex-grow: 1;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid #777;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* O Gradiente Colorido */
+.power-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #ffe600, #ff6a00, #ff0000);
+  box-shadow: 0 0 10px rgba(255, 100, 0, 0.5);
+  transition: width 0.05s linear;
+}
+
+/* Tracinhos da barra */
+.power-ticks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 9.5%,
+    rgba(255, 255, 255, 0.5) 10%
+  );
+  z-index: 2;
+}
+
+/* Número da força */
+.power-value {
+  color: #fff;
+  font-weight: bold;
+  width: 35px;
+  text-align: right;
+  font-family: monospace;
+  font-size: 16px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* ========================================
+   RÉGUA INFERIOR (RULER)
+   ======================================== */
+.ruler-container {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 60px;
-  background: rgba(0, 0, 0, 0.8);
+  height: 40px;
+  background: linear-gradient(to bottom, #5f8dd3, #214380);
+  border-top: 3px solid #8ab4f8;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border-top: 2px solid #555;
-  z-index: 20;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-sizing: border-box;
+  box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
 }
 
-#power-bar-container {
+.ruler-tick {
   position: relative;
-  width: 600px;
-  height: 30px;
-  background: #222;
-  border: 2px solid white;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-#power-bar-fill {
+  width: 1px;
   height: 100%;
-  width: 0%;
-  background: linear-gradient(to right, #ff3300, #ffcc00);
-  transition: width 0.1s linear;
+  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  justify-content: center;
 }
 
-.ruler-mark {
+.ruler-tick span {
+  position: absolute;
+  bottom: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.ruler-tick::before {
+  content: "";
   position: absolute;
   top: 0;
-  height: 100%;
-  border-left: 2px solid rgba(255, 255, 255, 0.5);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
-  padding-left: 4px;
-  line-height: 28px;
-  font-weight: bold;
-  pointer-events: none;
+  height: 12px;
+  width: 2px;
+  background: #fff;
 }
 
-#angle-info {
-  color: white;
+/* ========================================
+   DEBUG PANEL (MINI - CANTO INFERIOR)
+   ======================================== */
+#debug-panel {
+  position: absolute;
+  /* Posiciona no canto inferior direito da tela */
+  bottom: 60px; /* Um pouco acima da régua do jogo */
+  right: 10px;
+
+  background: rgba(0, 0, 0, 0.6);
+  padding: 5px;
+  border: 1px solid #444;
+  border-radius: 4px;
+
+  font-size: 10px; /* Letra pequena */
+  max-width: 180px;
+  font-family: "Courier New", monospace;
+
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+#debug-panel h3 {
+  margin: 0 0 2px 0;
+  font-size: 11px;
+  color: #0f0;
+}
+
+#debug-content div {
+  margin: 1px 0;
+  color: #ccc;
+  line-height: 1.2;
+}
+/* ========================================
+   MEDIDOR DE ÂNGULO (BASEADO EM IMAGEM)
+   ======================================== */
+.angle-wrapper {
+  position: absolute;
+  bottom: 60px;
+  left: 20px;
+
+  /* AJUSTE AQUI O TAMANHO DA SUA IMAGEM NA TELA */
+  width: 250px;
+  height: 250px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+/* A Imagem de Fundo */
+.angle-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Garante que a imagem não estique */
+  filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5)); /* Sombra bonita */
+}
+
+/* A Agulha (Flecha Amarela estilo DDTank) */
+.angle-needle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  /* Tamanho da Agulha (Ajuste conforme sua imagem) */
+  width: 6px;
+  height: 45px; /* Comprimento do centro até a ponta */
+
+  /* Cor e Estilo */
+  background: #ffcc00; /* Amarelo */
+  border: 1px solid #000; /* Borda preta */
+  border-radius: 2px;
+
+  /* PONTO DE GIRO (CRUCIAL) */
+  /* Isso faz a agulha girar pela base, e não pelo meio */
+  transform-origin: bottom center;
+
+  /* A posição inicial: Move para cima para a base ficar no centro */
+  /* rotate é controlado pelo JS */
+  transform: translate(-50%, -100%) rotate(0deg);
+
+  transition: transform 0.1s linear;
+  z-index: 2; /* Fica em cima da imagem */
+}
+
+/* A Ponta da Flecha (Triângulo) */
+.angle-needle::before {
+  content: "";
+  position: absolute;
+  top: -10px; /* Sobe um pouco acima do cabo */
+  left: -5px; /* Centraliza */
+
+  /* Desenha triângulo via CSS */
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #ffcc00; /* Cor da ponta */
+  filter: drop-shadow(0 -1px 0 #000); /* Borda falsa preta */
+}
+
+/* O Parafuso Central (Bolinha no meio pra esconder a base da agulha) */
+.angle-needle::after {
+  content: "";
+  position: absolute;
+  bottom: -6px; /* Desce para centralizar no eixo */
+  left: -5px;
+  width: 14px;
+  height: 14px;
+  background: #444;
+  border: 2px solid #000;
+  border-radius: 50%;
+}
+
+/* O Texto do Ângulo */
+.angle-value {
+  position: absolute;
+  bottom: 25%; /* Ajuste a altura do texto aqui */
+
+  font-family: "Arial Black", sans-serif;
   font-size: 20px;
-  margin-left: 20px;
-  font-weight: bold;
-  font-family: monospace;
+  color: #ffcc00;
+  text-shadow: 2px 2px 0 #000;
+  z-index: 3;
 }

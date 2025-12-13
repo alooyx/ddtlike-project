@@ -1,6 +1,6 @@
 // game.js - Core principal do jogo
 
-import { IMPACT_TYPES, WEAPON_DB, CONFIG, GAME_STATE } from "./config.js";
+import { WEAPON_DB, GAME_STATE } from "./config.js";
 import {
   Position,
   Renderable,
@@ -14,7 +14,7 @@ import { PhysicsSystem } from "./Phy/physics.js";
 import { RenderSystem } from "./js/systems/RenderSystem.js";
 import { TerrainSystem } from "./js/systems/TerrainSystem.js";
 import { SpriteManager } from "./js/SpriteManager.js";
-import { MapLoader } from "./js/MapLoader.js";
+import { MapLoader } from "./js/MapLoader.js"; // CORREÇÃO: Importa MapLoader, não Map
 import { Tile } from "./Maps/Tile.js";
 
 export class Game {
@@ -31,7 +31,7 @@ export class Game {
     this.inputSys = null;
     this.physicsSys = null;
     this.renderSys = null;
-    this.terrainSys = null; // 💥 NOVO
+    this.terrainSys = null;
 
     this.isRunning = false;
 
@@ -42,7 +42,7 @@ export class Game {
     try {
       console.log("⏳ Carregando recursos...");
 
-      // 1. Carrega sprites
+      // 1. Carrega sprites de armas e projéteis
       await this.loadSprites();
 
       // 2. Carrega mapa
@@ -51,10 +51,14 @@ export class Game {
       // 3. Inicializa sistemas
       this.initSystems();
 
-      // 4. Cria entidades iniciais
+      // 4. Pré-carrega explosões (TerrainSystem precisa estar inicializado)
+      // Isso garante que os sprites de explosão estejam prontos antes do tiro sair
+      await this.terrainSys.preloadExplosions();
+
+      // 5. Cria entidades iniciais
       this.createInitialEntities();
 
-      // 5. Configura UI
+      // 6. Configura UI
       this.setupUI();
 
       console.log("✅ Jogo pronto!\n");
@@ -67,13 +71,13 @@ export class Game {
   }
 
   async loadSprites() {
-    console.log("🎨 Carregando sprites...");
+    console.log("🎨 Carregando sprites de armas...");
 
     const spritesToLoad = [];
-    const loadedIDs = new Set(); // Evita carregar a mesma imagem 2x
+    const loadedIDs = new Set();
 
     for (const [weaponId, weaponData] of Object.entries(WEAPON_DB)) {
-      // 1. Carrega Sprite do Projétil (A bala voando)
+      // 1. Carrega Sprite do Projétil
       if (weaponData.spriteId && weaponData.sprite) {
         if (!loadedIDs.has(weaponData.spriteId)) {
           spritesToLoad.push({
@@ -88,61 +92,39 @@ export class Game {
         }
       }
 
-      // 2. 💥 Carrega Sprite da Explosão (O Boom) - CORREÇÃO AQUI
-      if (weaponData.explosionSprite) {
-        const expl = weaponData.explosionSprite;
-        // Só adiciona se ainda não carregamos esse ID (para não duplicar)
-        if (!loadedIDs.has(expl.id)) {
-          spritesToLoad.push({
-            id: expl.id,
-            path: expl.path,
-            frameWidth: expl.frameWidth,
-            frameHeight: expl.frameHeight,
-            totalFrames: expl.totalFrames,
-            fps: expl.fps || 20,
-          });
-          loadedIDs.add(expl.id);
-          console.log(`🧨 Explosão detectada na fila: ${expl.id}`);
-        }
-      }
+      // NOTA: Explosões são carregadas depois pelo TerrainSystem.preloadExplosions
+      // para manter o código organizado.
     }
 
     if (spritesToLoad.length > 0) {
       try {
         await this.spriteManager.loadMultiple(spritesToLoad);
         console.log(
-          `✅ ${spritesToLoad.length} sprite(s) carregada(s) (incluindo explosões)`
+          `✅ ${spritesToLoad.length} sprite(s) de projéteis carregada(s)`
         );
       } catch (err) {
         console.warn("⚠️ Erro ao carregar sprites:", err);
       }
-    } else {
-      console.log("ℹ️ Nenhuma sprite configurada para carregar.");
     }
   }
 
   async loadMap() {
     console.log("🗺️ Carregando mapa...");
 
+    // Usa MapLoader corretamente
     const resultado = await MapLoader.loadFromImage("./ddt.png");
     const { mapInstance, mapImage } = resultado;
 
+    // Redimensiona os canvas para o tamanho do mapa
     this.mainCanvas.width = mapInstance.bound.width;
     this.mainCanvas.height = mapInstance.bound.height;
     this.terrainCanvas.width = mapInstance.bound.width;
     this.terrainCanvas.height = mapInstance.bound.height;
+
+    // Desenha o mapa inicial no canvas de terreno (marrom)
     this.tCtx.drawImage(mapImage, 0, 0);
 
     this.gameMap = mapInstance;
-
-    // Cria caixa de teste
-    console.log("📦 Criando caixa de teste...");
-    const caixaTeste = Tile.createRectTile(200, 50);
-    const boxX = mapInstance.bound.width / 2 - 100;
-    const boxY = 400;
-    this.gameMap.add(boxX, boxY, caixaTeste);
-    this.tCtx.fillStyle = "red";
-    this.tCtx.fillRect(boxX, boxY, 200, 50);
 
     console.log("✅ Mapa carregado!");
   }
@@ -154,7 +136,7 @@ export class Game {
     this.physicsSys = new PhysicsSystem();
     this.renderSys = new RenderSystem(this.mainCanvas, this.terrainCanvas);
 
-    // 💥 NOVO: TerrainSystem
+    // Inicializa TerrainSystem
     this.terrainSys = new TerrainSystem(
       this.gameMap,
       this.tCtx,
@@ -162,15 +144,15 @@ export class Game {
       this.spriteManager
     );
 
-    // Configura PhysicsSystem com dependências
+    // Injeta dependências na Física
     this.physicsSys.setDependencies(
       this.gameMap,
       GAME_STATE,
-      this.terrainSys, // 💥 Passa TerrainSystem ao invés do objeto antigo
+      this.terrainSys,
       CameraFocus
     );
 
-    // 💥 Expõe globalmente para InputSystem usar
+    // Globais para debug/InputSystem
     window.TerrainSystem = this.terrainSys;
     window.gameMap = this.gameMap;
     window.world = this.world;
@@ -182,18 +164,19 @@ export class Game {
     console.log("🎮 Criando entidades...");
 
     const player = this.world.createEntity();
-    this.world.addComponent(
-      player,
-      "position",
-      Position(this.gameMap.bound.width / 2, 100)
-    );
+
+    // Posiciona o player no meio do mapa, lá no alto (para cair no chão)
+    const startX = this.gameMap.bound.width / 2;
+    const startY = 100;
+
+    this.world.addComponent(player, "position", Position(startX, startY));
     this.world.addComponent(
       player,
       "renderable",
       Renderable("tank", "#adff2f", 20)
     );
     this.world.addComponent(player, "playerControl", PlayerControl());
-    this.world.addComponent(player, "cameraFocus", CameraFocus());
+    //this.world.addComponent(player, "cameraFocus", CameraFocus());
     this.world.addComponent(player, "body", Body(20, 20));
 
     this.player = player;
@@ -204,8 +187,10 @@ export class Game {
   setupUI() {
     window.changeWeapon = (id) => {
       if (WEAPON_DB[id]) {
-        this.player.components.playerControl.weaponId = id;
-        console.log(`🔫 Arma trocada: ${WEAPON_DB[id].name}`);
+        if (this.player && this.player.components.playerControl) {
+          this.player.components.playerControl.weaponId = id;
+          console.log(`🔫 Arma trocada: ${WEAPON_DB[id].name}`);
+        }
       }
     };
   }
@@ -221,9 +206,12 @@ export class Game {
   loop() {
     if (!this.isRunning) return;
 
+    // Ordem de atualização: Input -> Física -> Render
     this.inputSys.update(this.world);
     this.physicsSys.update(this.world);
     this.renderSys.update(this.world);
+
+    // Limpa entidades mortas
     this.world.cleanup();
 
     requestAnimationFrame(() => this.loop());
@@ -238,6 +226,8 @@ export class Game {
     this.stop();
     this.world.clear();
     GAME_STATE.turn = "player";
+    this.createInitialEntities(); // Recria o player
+    this.start();
     console.log("🔄 Jogo resetado");
   }
 }

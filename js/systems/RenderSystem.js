@@ -294,11 +294,48 @@ export class RenderSystem {
   }
 
   drawHUD(ctrl) {
+    // Em vez de desenhar no Canvas, atualizamos o HTML
+    // Isso é mais rápido e fica mais bonito
+
+    const powerBar = document.getElementById("power-fill");
+    const powerText = document.getElementById("power-text");
+
+    if (powerBar && powerText) {
+      // Limita a força visualmente em 100%
+      const visualPower = Math.min(ctrl.power, 100);
+
+      // Atualiza a largura da div colorida
+      powerBar.style.width = `${visualPower}%`;
+
+      // Atualiza o número
+      powerText.innerText = Math.floor(visualPower);
+      const angleNeedle = document.getElementById("angle-needle");
+      const angleText = document.getElementById("angle-text");
+
+      if (angleNeedle && angleText) {
+        angleText.innerText = Math.floor(ctrl.angle);
+
+        // LÓGICA DE ROTAÇÃO:
+        // No CSS, desenhamos a agulha apontando para CIMA (0 graus visual).
+        // No Jogo:
+        // 90 graus = Mira pra Cima
+        // 0 graus  = Mira pra Direita
+
+        // Se o ângulo do jogo é 90, queremos rotação 0 (agulha em pé).
+        // Se o ângulo do jogo é 0, queremos rotação 90 (agulha deitada pra direita).
+
+        const rotation = 90 - ctrl.angle;
+
+        // Mantemos o translate(-50%, -100%) para a agulha ficar centralizada
+        angleNeedle.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
+      }
+    }
+
+    // Se quiser manter o Ângulo e Arma desenhados no Canvas, pode manter aqui:
     this.ctx.fillStyle = "white";
     this.ctx.font = "16px sans-serif";
     this.ctx.fillText(`Arma: ${WEAPON_DB[ctrl.weaponId].name}`, 20, 30);
-    this.ctx.fillText(`Força: ${Math.floor(ctrl.power)}`, 20, 50);
-    this.ctx.fillText(`Ângulo: ${ctrl.angle}°`, 20, 70);
+    this.ctx.fillText(`Ângulo: ${ctrl.angle}°`, 20, 50);
   }
 
   updateDebugPanel(world) {

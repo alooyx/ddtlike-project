@@ -1,4 +1,4 @@
-// Phy/Object/BombObject.js - VERSÃO CORRIGIDA
+// Phy/Object/BombObject.js - REFINED VERSION
 
 import { Physics } from "../physics.js";
 import { EulerVector } from "../maths/EulerVector.js";
@@ -20,14 +20,14 @@ export class BombObject extends Physics {
     this.windFactor = windFactor;
     this.airResistFactor = airResistFactor;
 
-    // Vetores de Euler para física (posição, velocidade, aceleração)
+    // Euler vectors for physics (position, velocity, acceleration)
     this.m_vx = new EulerVector(0, 0, 0);
     this.m_vy = new EulerVector(0, 0, 0);
 
-    // Define o bounding box centralizado
+    // Define centralized bounding box
     this.setRect(-(width / 2), -(height / 2), width, height);
 
-    // Fatores calculados (Air Resistance, Gravity, Wind)
+    // Calculated factors (Air Resistance, Gravity, Wind)
     this.arf = 0;
     this.gf = 0;
     this.wf = 0;
@@ -36,12 +36,12 @@ export class BombObject extends Physics {
     this.isLiving = true;
 
     console.log(
-      `🚀 BombObject criado: ID=${id}, mass=${mass}, size=${width}x${height}`
+      `🚀 BombObject created: ID=${id}, mass=${mass}, size=${width}x${height}`
     );
   }
 
   /* =========================================
-         GETTERS DE VELOCIDADE
+           VELOCITY GETTERS
      ========================================= */
 
   get vX() {
@@ -53,37 +53,32 @@ export class BombObject extends Physics {
   }
 
   /* =========================================
-         CONFIGURAÇÃO INICIAL
+           INITIAL CONFIGURATION
      ========================================= */
 
   setSpeedXY(vx, vy) {
     this.m_vx.x1 = vx;
     this.m_vy.x1 = vy;
-    console.log(
-      `🎯 Velocidade inicial: vx=${vx.toFixed(2)}, vy=${vy.toFixed(2)}`
-    );
+    console.log(`🎯 Initial Speed: vx=${vx.toFixed(2)}, vy=${vy.toFixed(2)}`);
   }
 
   setXY(x, y) {
-    if (super.setXY) super.setXY(x, y);
-    else {
-      this.x = x;
-      this.y = y;
-    }
+    // Directly call super.setXY since BombObject extends Physics
+    super.setXY(x, y);
 
     this.m_vx.x0 = x;
     this.m_vy.x0 = y;
   }
 
   setMap(map) {
-    if (super.setMap) super.setMap(map);
-    else this.map = map;
+    // Directly call super.setMap
+    super.setMap(map);
 
     this.updateAGW();
   }
 
   /* =========================================
-         FÍSICA - FATORES DE FORÇA
+           PHYSICS - FORCE FACTORS
      ========================================= */
 
   updateForceFactor(air, gravity, wind) {
@@ -106,14 +101,14 @@ export class BombObject extends Physics {
     this.wf = mapWind * this.windFactor;
 
     console.log(
-      `⚙️ Fatores de física: air=${this.arf.toFixed(3)}, grav=${this.gf.toFixed(
+      `⚙️ Physics Factors: air=${this.arf.toFixed(3)}, grav=${this.gf.toFixed(
         3
       )}, wind=${this.wf.toFixed(3)}`
     );
   }
 
   /* =========================================
-         FÍSICA - INTEGRAÇÃO DE EULER
+           PHYSICS - EULER INTEGRATION
      ========================================= */
 
   completeNextMovePoint(dt) {
@@ -127,24 +122,24 @@ export class BombObject extends Physics {
   }
 
   /* =========================================
-         LOOP DE ATUALIZAÇÃO PRINCIPAL
+           MAIN UPDATE LOOP
      ========================================= */
 
   update() {
     if (!this.isMoving) return;
 
-    // DT fixo para estabilidade
+    // Fixed DT for stability
     const dt = 0.1;
 
-    // 1. Calcula o próximo ponto baseado na física
+    // 1. Calculate next point based on physics
     const nextPoint = this.completeNextMovePoint(dt);
 
-    // 2. Move tentando chegar lá (verifica colisões no caminho)
+    // 2. Move trying to reach there (checking collisions along the way)
     this.moveTo(nextPoint.x, nextPoint.y);
   }
 
   /* =========================================
-         MOVIMENTO COM RAYCAST
+           MOVEMENT WITH RAYCAST
      ========================================= */
 
   moveTo(px, py) {
@@ -156,7 +151,7 @@ export class BombObject extends Physics {
     let dtStep = 1;
     let useX = true;
 
-    // Determina qual eixo tem maior movimento
+    // Determine major axis
     if (Math.abs(dx) > Math.abs(dy)) {
       useX = true;
       count = Math.abs(dx);
@@ -169,9 +164,9 @@ export class BombObject extends Physics {
 
     let dest = { x: this.x, y: this.y };
 
-    // Raycast: Verifica colisão pixel por pixel ao longo do trajeto
+    // Raycast: Check collision pixel by pixel along the path
     for (let i = 1; i <= count; i += 2) {
-      // i += 2 para otimização (a cada 2 pixels)
+      // i += 2 optimization
       if (useX) {
         dest = this.getNextPointByX(
           this.x,
@@ -190,7 +185,7 @@ export class BombObject extends Physics {
         );
       }
 
-      // --- VERIFICAÇÃO 1: COLISÃO COM OBJETOS FÍSICOS ---
+      // --- CHECK 1: COLLISION WITH PHYSICAL OBJECTS ---
       const currentRect = {
         x: Math.floor(dest.x - this._size.width / 2),
         y: Math.floor(dest.y - this._size.height / 2),
@@ -204,18 +199,18 @@ export class BombObject extends Physics {
       }
 
       if (list && list.length > 0) {
-        console.log(`💥 Bomba colidiu com ${list.length} objeto(s) físico(s)`);
+        console.log(`💥 Bomb collided with ${list.length} physical object(s)`);
         this.setXY(dest.x, dest.y);
         this.collideObjects(list);
         if (!this.isLiving || !this.isMoving) return;
       }
 
-      // --- VERIFICAÇÃO 2: COLISÃO COM TERRENO ---
+      // --- CHECK 2: COLLISION WITH TERRAIN ---
       else if (this.map && this.map.ground) {
         const checkX = Math.floor(dest.x);
         const checkY = Math.floor(dest.y);
 
-        // Verifica um quadrado 3x3 ao redor da posição
+        // Check a 3x3 square around position
         const hitsTerrain = !this.map.ground.isRectangleEmptyQuick(
           checkX - 1,
           checkY - 1,
@@ -224,23 +219,21 @@ export class BombObject extends Physics {
         );
 
         if (hitsTerrain) {
-          console.log(`🎯 Bomba colidiu com terreno em (${checkX}, ${checkY})`);
+          console.log(`🎯 Bomb hit terrain at (${checkX}, ${checkY})`);
           this.setXY(dest.x, dest.y);
           this.collideGround();
           return;
         }
       }
 
-      // --- VERIFICAÇÃO 3: SAIU DO MAPA ---
+      // --- CHECK 3: OUT OF MAP ---
       else if (
         this.map &&
         this.map.isOutMap &&
         this.map.isOutMap(dest.x, dest.y)
       ) {
         console.log(
-          `🌊 Bomba saiu do mapa em (${Math.floor(dest.x)}, ${Math.floor(
-            dest.y
-          )})`
+          `🌊 Bomb left map at (${Math.floor(dest.x)}, ${Math.floor(dest.y)})`
         );
         this.setXY(dest.x, dest.y);
         this.flyoutMap();
@@ -248,28 +241,28 @@ export class BombObject extends Physics {
       }
     }
 
-    // Se chegou aqui, não colidiu com nada - atualiza a posição
+    // If reached here, no collision - update position
     this.setXY(px, py);
   }
 
   /* =========================================
-         HANDLERS DE COLISÃO
+           COLLISION HANDLERS
      ========================================= */
 
   collideObjects(list) {
-    console.log("💥 collideObjects chamado");
+    console.log("💥 collideObjects called");
     this.stopMoving();
     this.die();
   }
 
   collideGround() {
-    console.log("💥 collideGround chamado");
+    console.log("💥 collideGround called");
     this.stopMoving();
     this.die();
   }
 
   flyoutMap() {
-    console.log("🌊 flyoutMap chamado");
+    console.log("🌊 flyoutMap called");
     this.stopMoving();
     if (this.isLiving) {
       this.die();
@@ -285,7 +278,7 @@ export class BombObject extends Physics {
   }
 
   /* =========================================
-         GEOMETRIA - INTERPOLAÇÃO LINEAR
+           GEOMETRY - LINEAR INTERPOLATION
      ========================================= */
 
   getNextPointByX(x1, x2, y1, y2, x) {

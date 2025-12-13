@@ -1,15 +1,21 @@
-// Phy/physics.js - VERSÃO CORRIGIDA
+// Phy/physics.js - CORRECTED AND COMPLETE VERSION
 
+// 1. Import CONFIG to access PPI
+import { CONFIG } from "../config.js";
+
+/* =========================================
+       BASE CLASS PHYSICS (Physical Object)
+   ========================================= */
 export class Physics {
   constructor(id) {
     this.id = id;
     this.map = null;
 
-    // Posição central do objeto
+    // Center position
     this._x = 0;
     this._y = 0;
 
-    // Tamanho e offset do bounding box
+    // Bounding box size and offset
     this._size = {
       offsetX: -5,
       offsetY: -5,
@@ -21,12 +27,12 @@ export class Physics {
     this.isLiving = true;
     this.isMoving = false;
 
-    console.log(`🎯 Physics criado: ID=${id}`);
+    console.log(`🎯 Physics created: ID=${id}`);
   }
 
   /* =========================================
-         GETTERS & SETTERS (Posição Central)
-     ========================================= */
+           GETTERS & SETTERS (Center Position)
+       ========================================= */
 
   get x() {
     return this._x;
@@ -45,11 +51,10 @@ export class Physics {
   }
 
   /* =========================================
-         GETTER DE COLISÃO GLOBAL (Crucial)
-     ========================================= */
+           GLOBAL COLLISION GETTER
+       ========================================= */
   /**
-   * Retorna o retângulo de colisão (bounding box) em COORDENADAS GLOBAIS.
-   * Este é o getter que o Map.js acessa para findPhysicalObjects.
+   * Returns collision rectangle (bounding box) in GLOBAL COORDINATES.
    */
   get rect() {
     const halfWidth = this._size.width / 2;
@@ -64,34 +69,18 @@ export class Physics {
   }
 
   /* =========================================
-         MÉTODOS DE CONFIGURAÇÃO
-     ========================================= */
+           CONFIGURATION METHODS
+       ========================================= */
 
   getCollidePoint() {
     return { x: this.x, y: this.y };
   }
 
-  /**
-   * Define o tamanho do bounding box
-   * @param {number} x - Offset X local (geralmente negativo)
-   * @param {number} y - Offset Y local (geralmente negativo)
-   * @param {number} width - Largura
-   * @param {number} height - Altura
-   */
   setRect(x, y, width, height) {
     this._size.offsetX = x;
     this._size.offsetY = y;
     this._size.width = width;
     this._size.height = height;
-
-    console.log(`📦 Rect definido: offset(${x},${y}) size(${width}x${height})`);
-  }
-
-  setRectBomb(x, y, width, height) {
-    this.rectBomb.x = x;
-    this.rectBomb.y = y;
-    this.rectBomb.width = width;
-    this.rectBomb.height = height;
   }
 
   setXY(x, y) {
@@ -100,204 +89,142 @@ export class Physics {
   }
 
   setMap(map) {
-    if (this.map && this.map !== map) {
-      console.log(`🗺️ Objeto ${this.id} mudando de mapa`);
-    }
     this.map = map;
   }
 
   /* =========================================
-         CONTROLE DE MOVIMENTO
-     ========================================= */
+           MOVEMENT CONTROL
+       ========================================= */
 
   startMoving() {
     if (this.map) {
       this.isMoving = true;
-      console.log(`▶️ Objeto ${this.id} começou a se mover`);
-    } else {
-      console.warn(`⚠️ Tentativa de mover objeto ${this.id} sem mapa!`);
     }
   }
 
   stopMoving() {
     this.isMoving = false;
-    console.log(`⏸️ Objeto ${this.id} parou de se mover`);
   }
 
   die() {
     this.stopMoving();
     this.isLiving = false;
-    console.log(`💀 Objeto ${this.id} morreu`);
   }
 
   /* =========================================
-         MÉTODOS VIRTUAIS (Para sobrescrever)
-     ========================================= */
-
-  collidedByObject(phy) {
-    // Virtual method intended to be overridden
-  }
-
-  prepareNewTurn() {
-    // Virtual method intended to be overridden
-  }
-
-  /* =========================================
-         UTILITÁRIOS
-     ========================================= */
+           UTILITIES
+       ========================================= */
 
   distance(x, y) {
     return Math.sqrt(Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2));
   }
 
-  static pointToLine(x1, y1, x2, y2, px, py) {
-    const a = y1 - y2;
-    const b = x2 - x1;
-    const c = x1 * y2 - x2 * y1;
-    return Math.abs(a * px + b * py + c) / Math.sqrt(a * a + b * b);
-  }
-
   dispose() {
-    if (this.map) {
-      if (typeof this.map.removePhysical === "function") {
-        this.map.removePhysical(this);
-      }
+    if (this.map && typeof this.map.removePhysical === "function") {
+      this.map.removePhysical(this);
     }
   }
 }
 
 /* =========================================
-       PHYSICS SYSTEM (ECS)
+       PHYSICS SYSTEM (ECS System)
    ========================================= */
-
 export class PhysicsSystem {
   constructor() {
+    // ⚙️ PHYSICS CALIBRATION
+    this.gravity = 0.6;
+
+    // Dependencies
     this.gameMap = null;
-    this.GAME_STATE = null;
-    this.TerrainSystem = null;
+    this.gameState = null;
+    this.terrainSys = null;
     this.CameraFocus = null;
   }
 
-  // Método para injetar dependências
-  setDependencies(gameMap, GAME_STATE, TerrainSystem, CameraFocus) {
+  setDependencies(gameMap, gameState, terrainSys, CameraFocus) {
     this.gameMap = gameMap;
-    this.GAME_STATE = GAME_STATE;
-    this.TerrainSystem = TerrainSystem;
+    this.gameState = gameState;
+    this.terrainSys = terrainSys;
     this.CameraFocus = CameraFocus;
-    console.log("🔧 PhysicsSystem configurado com dependências");
+    console.log("🔧 PhysicsSystem: Dependencies injected");
   }
-  // Adicione no PhysicsSystem:
 
   getWeaponIdFromProjectile(world) {
     const players = world.query(["playerControl"]);
     if (players.length > 0) {
       return players[0].components.playerControl.weaponId;
     }
-    return "missile"; // Fallback
+    return "missile";
   }
 
   update(world) {
-    // 1. ATUALIZA PROJÉTEIS
     this.updateProjectiles(world);
-
-    // 💥 ADICIONE ISTO DEPOIS DOS PROJÉTEIS:
-
-    // Remove explosões após duração
-    const explosions = world.query(["explosion"]);
-    explosions.forEach((ent) => {
-      const exp = ent.components.explosion;
-      const elapsed = Date.now() - exp.startTime;
-
-      if (elapsed >= exp.duration) {
-        world.markForRemoval(ent);
-        console.log("💥 Explosão removida");
-      }
-    });
-
-    // ... resto do código (players, etc) ...
-
-    // 2. ATUALIZA PLAYERS (Gravidade)
     this.updatePlayers(world);
+    this.cleanupExplosions(world);
   }
 
-  /* =========================================
-         ATUALIZAÇÃO DE PROJÉTEIS
-     ========================================= */
-
+  // =================================================================
+  // 🚀 PROJECTILE LOGIC
+  // =================================================================
   updateProjectiles(world) {
     const projectiles = world.query(["bombComponent", "position"]);
 
     projectiles.forEach((ent) => {
       const bombData = ent.components.bombComponent;
-      const bomb = bombData.instance;
+      const bomb = bombData.instance; // Instance of BombObject (extends Physics)
       const pos = ent.components.position;
 
-      // Atualiza a física da bomba
-      bomb.update();
+      // Call update of the bomb itself (BombObject.js logic)
+      if (bomb.update) {
+        bomb.update();
+      } else {
+        // Fallback simple physics
+        bomb.vY += this.gravity;
+        bomb.x += bomb.vX;
+        bomb.y += bomb.vY;
+      }
 
-      // Sincroniza a posição do ECS com a física
+      // Sync visually
       pos.x = bomb.x;
       pos.y = bomb.y;
 
-      // Verifica se a bomba morreu
+      // Check if dead (collision handled inside BombObject)
       if (!bomb.isLiving) {
-        console.log(
-          `💥 Projétil morreu em (${Math.floor(pos.x)}, ${Math.floor(pos.y)})`
-        );
+        // --- Distance Log (Using PPI) ---
+        if (bombData.originX !== undefined) {
+          const distPixels = Math.abs(bomb.x - bombData.originX);
 
-        // Verifica se está dentro do mapa antes de escavar
-        if (this.gameMap && !this.gameMap.isOutMap(pos.x, pos.y)) {
-          // --- MUDANÇA AQUI (Caso 1: Morte do Projétil) ---
-          const weaponId = this.getWeaponIdFromProjectile(world);
-          this.TerrainSystem.applyImpact(
-            pos.x,
-            pos.y,
+          // ✅ UPDATED: Calculate units based on CONFIG.PPI
+          const ppi = CONFIG.PPI || 120; // Default to 120 if config missing
+          const distUnits = distPixels / ppi;
+
+          console.log(`🎯 IMPACT!`);
+          console.log(`   - Pixels: ${Math.floor(distPixels)}px`);
+          console.log(`   - RULER: ${distUnits.toFixed(2)} Units`);
+        }
+
+        // --- Apply Impact ---
+        const weaponId = this.getWeaponIdFromProjectile(world);
+
+        // Check map bounds before digging
+        if (this.gameMap && !this.gameMap.isOutMap(bomb.x, bomb.y)) {
+          this.terrainSys.applyImpact(
+            bomb.x,
+            bomb.y,
             bombData.impactId,
             weaponId
           );
-          // ------------------------------------------------
         }
 
-        world.markForRemoval(ent);
+        world.removeEntity(ent.id);
         this.switchTurn(world);
-      }
-      // Verifica colisão com terreno (checagem manual extra)
-      else if (this.gameMap && this.gameMap.ground) {
-        const px = Math.floor(pos.x);
-        const py = Math.floor(pos.y);
-
-        // Verifica um quadrado 2x2 ao redor da posição
-        const hitsTerrain = !this.gameMap.ground.isRectangleEmptyQuick(
-          px - 1,
-          py - 1,
-          2,
-          2
-        );
-
-        if (hitsTerrain) {
-          console.log(`🎯 Projétil colidiu com terreno em (${px}, ${py})`);
-
-          // --- MUDANÇA AQUI (Caso 2: Colisão com Terreno) ---
-          const weaponId = this.getWeaponIdFromProjectile(world);
-          this.TerrainSystem.applyImpact(
-            pos.x,
-            pos.y,
-            bombData.impactId,
-            weaponId
-          );
-          // -------------------------------------------------
-
-          world.markForRemoval(ent);
-          this.switchTurn(world);
-        }
       }
     });
   }
 
-  /* =========================================
-         ATUALIZAÇÃO DE PLAYERS (GRAVIDADE)
-     ========================================= */
-
+  // =================================================================
+  // 🚶 PLAYER LOGIC
+  // =================================================================
   updatePlayers(world) {
     const players = world.query(["position", "body"]);
 
@@ -305,92 +232,46 @@ export class PhysicsSystem {
       const pos = ent.components.position;
       const body = ent.components.body;
 
-      // Validação de segurança
-      if (!this.gameMap || !this.gameMap.ground) {
-        console.warn("⚠️ PhysicsSystem: gameMap ou ground não existe!");
-        return;
+      if (!this.gameMap) return;
+
+      if (pos.y > this.gameMap.height + 100) {
+        pos.y = 100;
+        pos.x = 600;
+        body.vY = 0;
       }
 
-      // --- TRAVA DE SEGURANÇA: Impede queda infinita ---
-      const mapHeight = this.gameMap.bound.height;
-      if (pos.y > mapHeight - 20) {
-        pos.y = mapHeight - 20;
-        body.isGrounded = true;
-        console.log("🛡️ Player segurado no fundo do mapa");
-        return;
-      }
-
-      // --- FÍSICA DE GRAVIDADE ---
-
-      // Calcula a posição dos "pés" do tank
       const feetX = Math.floor(pos.x);
       const feetY = Math.floor(pos.y + body.height / 2);
 
-      // Verifica se há ar 1 pixel abaixo dos pés
-      const checkWidth = 8; // Largura da verificação
-      const checkX = feetX - checkWidth / 2;
+      const hasGround = this.gameMap.isSolid(feetX, feetY + 1);
 
-      const isAirBelow = this.gameMap.ground.isRectangleEmptyQuick(
-        checkX,
-        feetY + 1,
-        checkWidth,
-        2
-      );
-
-      if (isAirBelow) {
-        // Está no ar - aplica gravidade
-        pos.y += 3; // Velocidade de queda
+      if (!hasGround) {
+        pos.y += 4;
         body.isGrounded = false;
-
-        // Verifica se caiu demais (fora do mapa)
-        if (pos.y > mapHeight + 100) {
-          console.log("☠️ Player caiu fora do mapa - Respawn");
-          pos.y = 100;
-          pos.x = this.gameMap.bound.width / 2;
-        }
       } else {
-        // Está tocando o chão
         body.isGrounded = true;
-
-        // Ajusta a posição para ficar exatamente em cima do chão
-        let safety = 0;
-        while (
-          !this.gameMap.ground.isRectangleEmptyQuick(
-            checkX,
-            Math.floor(pos.y + body.height / 2),
-            checkWidth,
-            2
-          ) &&
-          safety < 20
-        ) {
-          pos.y -= 0.5; // Move para cima devagar
-          safety++;
-        }
-
-        if (safety > 0) {
-          console.log(`⬆️ Player ajustado ${safety * 0.5}px para cima`);
+        if (this.gameMap.isSolid(feetX, feetY)) {
+          pos.y -= 1;
         }
       }
     });
   }
 
-  /* =========================================
-         TROCA DE TURNO
-     ========================================= */
+  cleanupExplosions(world) {
+    const explosions = world.query(["explosion"]);
+    explosions.forEach((ent) => {
+      const exp = ent.components.explosion;
+      if (Date.now() - exp.startTime >= exp.duration) {
+        world.removeEntity(ent.id);
+      }
+    });
+  }
 
   switchTurn(world) {
-    if (!this.GAME_STATE) {
-      console.warn("⚠️ GAME_STATE não configurado!");
-      return;
-    }
-
-    this.GAME_STATE.turn = "waiting";
-    console.log("⏳ Esperando para próximo turno...");
-
+    if (!this.gameState) return;
+    this.gameState.turn = "waiting";
     setTimeout(() => {
-      this.GAME_STATE.turn = "player";
-      console.log("✅ Turno do player");
-
+      this.gameState.turn = "player";
       const players = world.query(["playerControl"]);
       if (players[0] && this.CameraFocus) {
         world.addComponent(players[0], "cameraFocus", this.CameraFocus());

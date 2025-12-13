@@ -3,36 +3,70 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tanks ECS - Modular</title>
+    <title>Tanks ECS - DDTank Style</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- UI Layer -->
-    <div id="ui-layer">
-      <div>
-        <button onclick="window.changeWeapon('missile')">Míssil</button>
-        <button onclick="window.changeWeapon('nuke')">Nuke</button>
-        <button onclick="window.changeWeapon('drill')">Escavadeira</button>
-        <button
-          onclick="window.changeWeapon('custom_weapon')"
-          style="background: #663399"
-        >
-          🎨 Toaster
-        </button>
+    <div
+      id="weapons-menu"
+      style="text-align: center; padding: 10px; background: #222"
+    >
+      <button onclick="window.changeWeapon('missile')">Míssil</button>
+      <button onclick="window.changeWeapon('nuke')">Nuke</button>
+      <button onclick="window.changeWeapon('drill')">Escavadeira</button>
+      <button
+        onclick="window.changeWeapon('custom_weapon')"
+        style="background: #663399; color: white"
+      >
+        🎨 Toaster
+      </button>
+      <div class="info" style="color: #ccc; margin-top: 5px">
+        ←/→ Mover | ↑/↓ Mirar | Espaço: Atirar (Segure)
       </div>
-      <div class="info">←/→ Mover | ↑/↓ Mirar | Espaço: Atirar (Segure)</div>
     </div>
 
-    <!-- Debug Panel -->
-    <div id="debug-panel">
-      <h3>🔍 DEBUG</h3>
-      <div id="debug-content">Carregando...</div>
+    <div id="game-container">
+      <canvas id="gameCanvas"></canvas>
+
+      <div id="ui-layer">
+        <div class="angle-wrapper">
+          <img src="./sprites/ui/angle_bg.png" alt="Ângulo" class="angle-img" />
+
+          <div class="angle-needle" id="angle-needle"></div>
+
+          <div class="angle-value" id="angle-text">0</div>
+        </div>
+        <div class="power-wrapper">
+          <div class="power-label">Força</div>
+          <div class="power-track">
+            <div class="power-fill" id="power-fill"></div>
+            <div class="power-ticks"></div>
+            <div class="power-marker" id="power-marker"></div>
+          </div>
+          <div class="power-value" id="power-text">0</div>
+        </div>
+
+        <div class="ruler-container">
+          <div class="ruler-tick"><span>0</span></div>
+          <div class="ruler-tick"><span>1</span></div>
+          <div class="ruler-tick"><span>2</span></div>
+          <div class="ruler-tick"><span>3</span></div>
+          <div class="ruler-tick"><span>4</span></div>
+          <div class="ruler-tick"><span>5</span></div>
+          <div class="ruler-tick"><span>6</span></div>
+          <div class="ruler-tick"><span>7</span></div>
+          <div class="ruler-tick"><span>8</span></div>
+          <div class="ruler-tick"><span>9</span></div>
+          <div class="ruler-tick"><span>10</span></div>
+        </div>
+      </div>
+
+      <div id="debug-panel">
+        <h3>🔍 DEBUG</h3>
+        <div id="debug-content">Carregando...</div>
+      </div>
     </div>
 
-    <!-- Game Canvas -->
-    <canvas id="gameCanvas"></canvas>
-
-    <!-- Main Script -->
     <script type="module">
       import { Game } from "./game.js";
 
@@ -40,7 +74,6 @@
 
       const game = new Game();
 
-      // Inicializa e começa
       game.init().then((success) => {
         if (success) {
           game.start();
@@ -49,7 +82,6 @@
         }
       });
 
-      // Expõe o game globalmente para debug
       window.game = game;
     </script>
   </body>

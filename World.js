@@ -1,4 +1,4 @@
-// js/World.js - Sistema ECS
+// js/World.js - Sistema ECS Compatível
 
 export class World {
   constructor() {
@@ -14,6 +14,10 @@ export class World {
   }
 
   addComponent(ent, name, data) {
+    // Garante que o componente saiba a qual entidade pertence (opcional, mas útil)
+    if (data && typeof data === "object") {
+      data._entityId = ent.id;
+    }
     ent.components[name] = data;
   }
 
@@ -21,8 +25,19 @@ export class World {
     delete ent.components[name];
   }
 
+  // ⚠️ O MÉTODO QUE FALTAVA (Correção do erro)
+  removeEntity(entityId) {
+    // Aceita tanto o número (ID) quanto o objeto entidade
+    if (typeof entityId === "object" && entityId !== null) {
+      this.entitiesToRemove.push(entityId.id);
+    } else {
+      this.entitiesToRemove.push(entityId);
+    }
+  }
+
+  // Mantido para compatibilidade (apenas chama o removeEntity)
   markForRemoval(ent) {
-    this.entitiesToRemove.push(ent.id);
+    this.removeEntity(ent);
   }
 
   cleanup() {

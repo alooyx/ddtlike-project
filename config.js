@@ -93,7 +93,7 @@ export const WEAPON_DB = {
     name: "Torradeira",
     color: "#ff00ff",
     projSize: 8,
-    speedMult: 2.2,
+    speedMult: 32.0,
     impactId: "LIGHTNING",
     spriteId: "_toast", // ID do projétil voando (torrada)
 
@@ -129,7 +129,7 @@ export const WEAPON_DB = {
 export const CONFIG = {
   moveSpeed: 2,
   PPI: 100,
-  GRAVITY: 0.6,
+  GRAVITY: 0.15,
   MINIMAP: {
     WIDTH: 200, // Width in pixels on screen
     BORDER_COLOR: "#555",

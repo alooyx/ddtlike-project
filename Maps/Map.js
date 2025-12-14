@@ -105,7 +105,11 @@ export class Map {
   }
 
   isOutMap(x, y) {
-    return x < 0 || x >= this._bound.width || y < -2000;
+    // return x < 0 || x >= this._bound.width || y < -2000;
+
+    return (
+      x < -100 || x >= this._bound.width + 100 || y > this._bound.height + 500
+    );
   }
 
   /* =========================================

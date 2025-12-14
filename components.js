@@ -45,7 +45,7 @@ export const WeaponSprite = (
 // Controles do jogador
 export const PlayerControl = () => ({
   angle: 45, // Ângulo da mira (0-180)
-  power: 50, // Força do tiro (0-100)
+  power: 0, // Força do tiro (0-100)
   isCharging: false, // Está carregando?
   weaponId: "missile", // ID da arma equipada
   facingRight: true, // Direção que o tank está virado

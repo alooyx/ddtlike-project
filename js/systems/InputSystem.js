@@ -1,9 +1,7 @@
 // systems/InputSystem.js
 
 import { GAME_STATE, CONFIG, WEAPON_DB } from "../../config.js";
-
 import { BombObject } from "../../Phy/Object/BombObject.js";
-
 import {
   Position,
   SpriteRenderable,
@@ -11,24 +9,18 @@ import {
   BombComponent,
   CameraFocus,
 } from "../../components.js";
-
 import { SpriteAnimation } from "../SpriteManager.js";
 
 export class InputSystem {
   constructor(gameMap, spriteManager) {
     this.gameMap = gameMap;
-
     this.spriteManager = spriteManager;
-
     this.keys = {};
-
     this.fireReleased = false;
 
     window.addEventListener("keydown", (e) => (this.keys[e.code] = true));
-
     window.addEventListener("keyup", (e) => {
       this.keys[e.code] = false;
-
       if (e.code === "Space") this.fireReleased = true;
     });
   }
@@ -40,40 +32,62 @@ export class InputSystem {
 
     players.forEach((ent) => {
       const ctrl = ent.components.playerControl;
-
       const pos = ent.components.position;
 
-      // Movimento com flip de direção
+      // ============================================================
+      // ⚙️ SENSIBILIDADE
+      // ============================================================
+      const ANGLE_STEP = 0.5; // Passo de 1 em 1 grau (INTEIRO)
+      const POWER_SPEED = 0.4;
+      const MOVE_SPEED = CONFIG.moveSpeed || 1.5;
 
+      // Movimento
       if (this.keys["ArrowLeft"]) {
-        pos.x -= CONFIG.moveSpeed;
-
+        pos.x -= MOVE_SPEED;
         ctrl.facingRight = false;
       }
-
       if (this.keys["ArrowRight"]) {
-        pos.x += CONFIG.moveSpeed;
-
+        pos.x += MOVE_SPEED;
         ctrl.facingRight = true;
       }
 
-      if (this.keys["ArrowUp"]) ctrl.angle = Math.min(180, ctrl.angle + 1);
+      // ============================================================
+      // 📐 ÂNGULO BLINDADO (INTEIROS APENAS)
+      // ============================================================
+      if (this.keys["ArrowUp"]) {
+        ctrl.angle += ANGLE_STEP;
 
-      if (this.keys["ArrowDown"]) ctrl.angle = Math.max(0, ctrl.angle - 1);
+        // 🔒 A TRAVA DE SEGURANÇA:
+        // Arredonda IMEDIATAMENTE. Se for 90.5, vira 91. Se for 90.1, vira 90.
+        ctrl.angle = Math.round(ctrl.angle);
 
+        // Loop de 360
+        if (ctrl.angle >= 360) ctrl.angle = 0;
+      }
+
+      if (this.keys["ArrowDown"]) {
+        ctrl.angle -= ANGLE_STEP;
+
+        // 🔒 A TRAVA DE SEGURANÇA:
+        ctrl.angle = Math.round(ctrl.angle);
+
+        // Loop reverso
+        if (ctrl.angle < 0) ctrl.angle = 359;
+      }
+
+      // Força
       if (this.keys["Space"]) {
         ctrl.isCharging = true;
-
-        ctrl.power = Math.min(100, ctrl.power + 1);
+        if (ctrl.power < 0) ctrl.power = 0;
+        ctrl.power = Math.min(100, ctrl.power + POWER_SPEED);
       } else {
         if (this.fireReleased && ctrl.power > 0) {
           this.spawnProjectile(world, ent);
-
-          ctrl.power = 50;
-
+          ctrl.power = 0;
           ctrl.isCharging = false;
-
           this.fireReleased = false;
+        } else {
+          if (!ctrl.isCharging) ctrl.power = 0;
         }
       }
     });
@@ -83,111 +97,94 @@ export class InputSystem {
     console.log("\n🚀 === SPAWN PROJECTILE ===");
 
     GAME_STATE.turn = "bullet";
-
     const pos = player.components.position;
-
     const ctrl = player.components.playerControl;
-
     const weaponStats = WEAPON_DB[ctrl.weaponId];
 
+    // GARANTIA FINAL: Antes de atirar, arredonda de novo só pra ter certeza absoluta
+    const finalAngle = Math.round(ctrl.angle);
+
     console.log(`📊 Arma: ${weaponStats.name}`);
+    console.log(`📊 Ângulo: ${finalAngle}°`); // Vai mostrar inteiro
+    console.log(`📊 Força: ${Math.floor(ctrl.power)}`);
 
-    console.log(`📊 Ângulo: ${ctrl.angle}°`);
-
-    console.log(`📊 Força: ${ctrl.power}`);
-
-    delete player.components.cameraFocus;
+    if (player.components.cameraFocus) {
+      delete player.components.cameraFocus;
+    }
 
     const bullet = world.createEntity();
 
     const bomb = new BombObject(
       Date.now(),
-
-      10,
-
-      0.08,
-
-      0,
-
-      0,
-
-      weaponStats.projSize,
-
-      weaponStats.projSize
+      weaponStats.mass || 1,
+      1,
+      0, // Vento
+      0, // Ar
+      weaponStats.projSize || 10,
+      weaponStats.projSize || 10
     );
 
     bomb.setMap(this.gameMap);
 
-    const startX = pos.x;
+    const cannonLength = 30;
+    const pivotX = pos.x;
+    const pivotY = pos.y - 15;
 
-    const startY = pos.y - 20;
+    let fireAngle = finalAngle;
+    if (!ctrl.facingRight) {
+      fireAngle = 180 - finalAngle;
+    }
+
+    const rad = (fireAngle * Math.PI) / 180;
+
+    const startX = pivotX + Math.cos(rad) * cannonLength;
+    const startY = pivotY - Math.sin(rad) * cannonLength;
 
     bomb.setXY(startX, startY);
 
-    const rad = (ctrl.angle * Math.PI) / 180;
+    const powerPercent = ctrl.power / 100;
+    const speedMagnitude = powerPercent * weaponStats.speedMult;
 
-    const powerBase = ctrl.power * 1.2 * weaponStats.speedMult;
-
-    const vx = Math.cos(rad) * powerBase;
-
-    const vy = -Math.sin(rad) * powerBase;
+    const vx = Math.cos(rad) * speedMagnitude;
+    const vy = -Math.sin(rad) * speedMagnitude;
 
     bomb.setSpeedXY(vx, vy);
 
-    console.log(`🎯 Posição: (${startX}, ${startY})`);
-
-    console.log(`🎯 Velocidade: vx=${vx.toFixed(2)}, vy=${vy.toFixed(2)}`);
-
-    world.addComponent(
-      bullet,
-
-      "bombComponent",
-
-      BombComponent(bomb, weaponStats.impactId)
-    );
+    world.addComponent(bullet, "bombComponent", {
+      instance: bomb,
+      impactId: weaponStats.impactId,
+      originX: startX,
+      originY: startY,
+    });
 
     world.addComponent(bullet, "position", Position(startX, startY));
 
-    // Verifica sprite
-
     if (weaponStats.spriteId && weaponStats.sprite) {
       const spriteSheet = this.spriteManager.get(weaponStats.spriteId);
-
       if (spriteSheet && spriteSheet.loaded) {
         const animation = new SpriteAnimation(spriteSheet, true);
-
         world.addComponent(
           bullet,
-
           "renderable",
-
-          SpriteRenderable(animation, weaponStats.sprite.scale)
+          SpriteRenderable(animation, weaponStats.sprite.scale || 1.0)
         );
-
-        console.log(`🎨 Projétil usando sprite: ${weaponStats.spriteId}`);
       } else {
-        console.warn(`⚠️ Sprite não encontrada: ${weaponStats.spriteId}`);
-
         world.addComponent(
           bullet,
-
           "renderable",
-
-          Renderable("projectile", weaponStats.color, weaponStats.projSize)
+          Renderable("projectile", weaponStats.color || "red", 5)
         );
       }
     } else {
       world.addComponent(
         bullet,
-
         "renderable",
-
-        Renderable("projectile", weaponStats.color, weaponStats.projSize)
+        Renderable("projectile", weaponStats.color || "red", 5)
       );
     }
 
     world.addComponent(bullet, "cameraFocus", CameraFocus());
 
-    console.log("✅ Projétil spawned\n");
+    console.log("✅ Projétil disparado!\n");
   }
 }

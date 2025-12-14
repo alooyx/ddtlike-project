@@ -18,13 +18,35 @@ export class RenderSystem {
     const focusTargets = world.query(["position", "cameraFocus"]);
     if (focusTargets.length > 0) {
       const target = focusTargets[0].components.position;
-      const smoothing = 0.15;
+      const smoothing = 0.1; // Suavizei um pouco mais (era 0.15) para ficar cinematográfico
 
-      this.camera.x +=
-        (target.x - this.mainCanvas.width / 2 - this.camera.x) * smoothing;
-      this.camera.y +=
-        (target.y - this.mainCanvas.height / 2 - this.camera.y) * smoothing;
+      // Posição alvo (centralizada)
+      let targetCamX = target.x - this.mainCanvas.width / 2;
+      let targetCamY = target.y - this.mainCanvas.height / 2;
+
+      // --- APLICA A TRAVA (CLAMP) ---
+      // Impede que a câmera saia dos limites do mapa
+
+      // Limites do Mapa (Baseado no tamanho do canvas de terreno)
+      const mapW = this.terrainCanvas.width;
+      const mapH = this.terrainCanvas.height;
+      const camW = this.mainCanvas.width;
+      const camH = this.mainCanvas.height;
+
+      // Trava X: Entre 0 e (LarguraMapa - LarguraTela)
+      targetCamX = Math.max(0, Math.min(targetCamX, mapW - camW));
+
+      // Trava Y: Entre -500 (Céu visível) e (AlturaMapa - AlturaTela)
+      // O -500 permite olhar um pouco pra cima do limite, mas não infinito
+      targetCamY = Math.max(-500, Math.min(targetCamY, mapH - camH));
+
+      // Aplica o movimento suave em direção ao alvo travado
+      this.camera.x += (targetCamX - this.camera.x) * smoothing;
+      this.camera.y += (targetCamY - this.camera.y) * smoothing;
     }
+
+    // ============================================================
+    // 🌍 RESTO DO CÓDIGO (TREMOR, DESENHO, ETC) MANTENHA IGUAL
 
     // ============================================================
     // 🌍 SISTEMA DE TREMOR OTIMIZADO (TRAUMA & DECAY)

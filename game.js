@@ -176,7 +176,7 @@ export class Game {
       Renderable("tank", "#adff2f", 20)
     );
     this.world.addComponent(player, "playerControl", PlayerControl());
-    //this.world.addComponent(player, "cameraFocus", CameraFocus());
+    this.world.addComponent(player, "cameraFocus", CameraFocus());
     this.world.addComponent(player, "body", Body(20, 20));
 
     this.player = player;

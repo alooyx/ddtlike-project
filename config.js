@@ -6,8 +6,8 @@ export const IMPACT_TYPES = {
   crater_tunnel: { radius: 20 }, // Escavadeira faz túnel fino
   crater_custom: { radius: 50 },
   LIGHTNING: {
-    craterId: "crater_lightning", // O nome do arquivo (sem .png) que definimos no TerrainSystem
-    radius: 60, // Fallback caso a imagem falhe
+    craterId: "shoq2", // O nome do arquivo (sem .png) que definimos no TerrainSystem
+    radius: 20, // Fallback caso a imagem falhe
     damage: 60,
   },
 };
@@ -74,7 +74,7 @@ export const WEAPON_DB = {
   drill: {
     name: "Escavadeira",
     color: "#00ffff",
-    projSize: 3, // Projetil menor para cavar melhor
+    projSize: 1, // Projetil menor para cavar melhor
     speedMult: 3.0,
     minAngle: 20,
     maxAngle: 90,
@@ -90,7 +90,7 @@ export const WEAPON_DB = {
       frameHeight: 346,
       totalFrames: 7,
       fps: 24, // Elétrico é rápido!
-      scale: 0.6,
+      scale: 0.2,
       duration: 333,
     },
   },
@@ -98,7 +98,7 @@ export const WEAPON_DB = {
   custom_weapon: {
     name: "Torradeira",
     color: "#ff00ff",
-    projSize: 8,
+    projSize: 1,
     speedMult: 17.0,
     minAngle: 20,
     maxAngle: 90,
@@ -128,7 +128,7 @@ export const WEAPON_DB = {
       frameHeight: 346,
       totalFrames: 7,
       fps: 20,
-      scale: 0.8,
+      scale: 0.6,
       duration: 400,
     },
   },

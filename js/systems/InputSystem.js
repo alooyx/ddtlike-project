@@ -34,11 +34,17 @@ export class InputSystem {
       const ctrl = ent.components.playerControl;
       const pos = ent.components.position;
 
+      // 1. Inicializa o "Acumulador" (Virtual) se não existir
+      // Isso permite guardar o 90.5 sem sujar o angulo real
+      if (ctrl.virtualAngle === undefined) ctrl.virtualAngle = ctrl.angle;
+
       // ============================================================
       // ⚙️ SENSIBILIDADE
       // ============================================================
-      const ANGLE_STEP = 0.5; // Passo de 1 em 1 grau (INTEIRO)
-      const POWER_SPEED = 0.4;
+      // Agora você pode controlar isso no config.js (Ex: 0.1 ou 0.2)
+      const ANGLE_STEP = CONFIG.angleStep || 1;
+
+      const POWER_SPEED = 0.2;
       const MOVE_SPEED = CONFIG.moveSpeed || 1.5;
 
       // Movimento
@@ -52,27 +58,31 @@ export class InputSystem {
       }
 
       // ============================================================
-      // 📐 ÂNGULO BLINDADO (INTEIROS APENAS)
+      // 📐 ÂNGULO: ACUMULADOR DECIMAL -> SAÍDA INTEIRA
       // ============================================================
+      let changed = false;
+
       if (this.keys["ArrowUp"]) {
-        ctrl.angle += ANGLE_STEP;
+        ctrl.virtualAngle += ANGLE_STEP; // Acumula (Ex: 45.1, 45.2...)
+        changed = true;
 
-        // 🔒 A TRAVA DE SEGURANÇA:
-        // Arredonda IMEDIATAMENTE. Se for 90.5, vira 91. Se for 90.1, vira 90.
-        ctrl.angle = Math.round(ctrl.angle);
-
-        // Loop de 360
-        if (ctrl.angle >= 360) ctrl.angle = 0;
+        // Loop de 360 no virtual
+        if (ctrl.virtualAngle >= 360) ctrl.virtualAngle = 0;
       }
 
       if (this.keys["ArrowDown"]) {
-        ctrl.angle -= ANGLE_STEP;
-
-        // 🔒 A TRAVA DE SEGURANÇA:
-        ctrl.angle = Math.round(ctrl.angle);
+        ctrl.virtualAngle -= ANGLE_STEP; // Acumula
+        changed = true;
 
         // Loop reverso
-        if (ctrl.angle < 0) ctrl.angle = 359;
+        if (ctrl.virtualAngle < 0) ctrl.virtualAngle = 359.9;
+      }
+
+      if (changed) {
+        // 🔒 A TRAVA DE OURO: Math.floor
+        // Joga fora qualquer decimal. 45.9 vira 45.
+        // O jogo SÓ muda de ângulo quando completa 1 grau inteiro.
+        ctrl.angle = Math.floor(ctrl.virtualAngle);
       }
 
       // Força
@@ -101,11 +111,11 @@ export class InputSystem {
     const ctrl = player.components.playerControl;
     const weaponStats = WEAPON_DB[ctrl.weaponId];
 
-    // GARANTIA FINAL: Antes de atirar, arredonda de novo só pra ter certeza absoluta
-    const finalAngle = Math.round(ctrl.angle);
+    // Garantia final: Ângulo é INTEIRO
+    const finalAngle = Math.floor(ctrl.angle);
 
     console.log(`📊 Arma: ${weaponStats.name}`);
-    console.log(`📊 Ângulo: ${finalAngle}°`); // Vai mostrar inteiro
+    console.log(`📊 Ângulo: ${finalAngle}°`);
     console.log(`📊 Força: ${Math.floor(ctrl.power)}`);
 
     if (player.components.cameraFocus) {
@@ -114,10 +124,11 @@ export class InputSystem {
 
     const bullet = world.createEntity();
 
+    // 2. FÍSICA: Agora lê do CONFIG para ficar igual ao seu balanço
     const bomb = new BombObject(
       Date.now(),
       weaponStats.mass || 1,
-      1,
+      CONFIG.GRAVITY || 1, // <--- ÚNICA MUDANÇA AQUI: Lê do config
       0, // Vento
       0, // Ar
       weaponStats.projSize || 10,

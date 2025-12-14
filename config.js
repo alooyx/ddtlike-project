@@ -18,6 +18,8 @@ export const WEAPON_DB = {
     color: "#ffff00",
     projSize: 4,
     speedMult: 2.5,
+    minAngle: 20,
+    maxAngle: 90,
     impactId: "crater_small",
     spriteId: null,
     weaponSprite: null,
@@ -49,6 +51,8 @@ export const WEAPON_DB = {
     color: "#00ff00",
     projSize: 6,
     speedMult: 2.0,
+    minAngle: 20,
+    maxAngle: 90,
     impactId: "crater_large",
     spriteId: null,
     weaponSprite: null,
@@ -72,6 +76,8 @@ export const WEAPON_DB = {
     color: "#00ffff",
     projSize: 3, // Projetil menor para cavar melhor
     speedMult: 3.0,
+    minAngle: 20,
+    maxAngle: 90,
     impactId: "LIGHTNING",
     spriteId: null,
     weaponSprite: null,
@@ -93,7 +99,9 @@ export const WEAPON_DB = {
     name: "Torradeira",
     color: "#ff00ff",
     projSize: 8,
-    speedMult: 32.0,
+    speedMult: 17.0,
+    minAngle: 20,
+    maxAngle: 90,
     impactId: "LIGHTNING",
     spriteId: "_toast", // ID do projétil voando (torrada)
 
@@ -128,8 +136,9 @@ export const WEAPON_DB = {
 
 export const CONFIG = {
   moveSpeed: 2,
-  PPI: 100,
-  GRAVITY: 0.15,
+  PPI: 120,
+  GRAVITY: 0.3,
+  angleStep: 0.1,
   MINIMAP: {
     WIDTH: 200, // Width in pixels on screen
     BORDER_COLOR: "#555",

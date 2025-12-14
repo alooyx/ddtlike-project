@@ -1,4 +1,8 @@
+// js/systems/RenderSystem.js
+
 import { WEAPON_DB } from "../../config.js";
+// ✅ IMPORT NOVO: Importa a biblioteca de efeitos visuais
+import { VisualEffects } from "../utils/VisualEffects.js";
 
 export class RenderSystem {
   constructor(mainCanvas, terrainCanvas) {
@@ -14,45 +18,34 @@ export class RenderSystem {
     const deltaTime = currentTime - this.lastTime;
     this.lastTime = currentTime;
 
-    // 1. Atualiza câmera (Suavização)
+    // 1. Atualiza câmera (Suavização com Clamp)
     const focusTargets = world.query(["position", "cameraFocus"]);
     if (focusTargets.length > 0) {
       const target = focusTargets[0].components.position;
-      const smoothing = 0.1; // Suavizei um pouco mais (era 0.15) para ficar cinematográfico
+      const smoothing = 0.1;
 
-      // Posição alvo (centralizada)
       let targetCamX = target.x - this.mainCanvas.width / 2;
       let targetCamY = target.y - this.mainCanvas.height / 2;
 
       // --- APLICA A TRAVA (CLAMP) ---
-      // Impede que a câmera saia dos limites do mapa
-
-      // Limites do Mapa (Baseado no tamanho do canvas de terreno)
       const mapW = this.terrainCanvas.width;
       const mapH = this.terrainCanvas.height;
       const camW = this.mainCanvas.width;
       const camH = this.mainCanvas.height;
 
-      // Trava X: Entre 0 e (LarguraMapa - LarguraTela)
+      // Trava X
       targetCamX = Math.max(0, Math.min(targetCamX, mapW - camW));
 
-      // Trava Y: Entre -500 (Céu visível) e (AlturaMapa - AlturaTela)
-      // O -500 permite olhar um pouco pra cima do limite, mas não infinito
+      // Trava Y (-500 permite ver o céu)
       targetCamY = Math.max(-500, Math.min(targetCamY, mapH - camH));
 
-      // Aplica o movimento suave em direção ao alvo travado
       this.camera.x += (targetCamX - this.camera.x) * smoothing;
       this.camera.y += (targetCamY - this.camera.y) * smoothing;
     }
 
     // ============================================================
-    // 🌍 RESTO DO CÓDIGO (TREMOR, DESENHO, ETC) MANTENHA IGUAL
-
+    // 🌍 SISTEMA DE TREMOR OTIMIZADO
     // ============================================================
-    // 🌍 SISTEMA DE TREMOR OTIMIZADO (TRAUMA & DECAY)
-    // ============================================================
-    // Em vez de somar tremores, calculamos a maior intensidade atual.
-
     let currentShakeIntensity = 0;
     const activeExplosions = world.query(["explosion", "renderable"]);
 
@@ -61,21 +54,14 @@ export class RenderSystem {
       const anim = rend.animation;
 
       if (anim) {
-        // Calcula progresso da animação (0.0 a 1.0)
         const totalFrames =
           (anim.spriteSheet && anim.spriteSheet.totalFrames) ||
           anim.totalFrames ||
           10;
         const progress = anim.currentFrame / totalFrames;
-
-        // Decaimento: Tremor forte no início (1.0), zero no final (0.0)
         const decay = Math.max(0, 1 - progress);
-
-        // Força Base: Explosões maiores (Scale alto) tremem mais!
-        // Scale 0.8 = Força 16 | Scale 2.0 = Força 40
         const baseForce = 20 * (rend.scale || 1.0);
 
-        // Math.max: Pega apenas o tremor mais forte da cena (evita bugs de soma infinita)
         currentShakeIntensity = Math.max(
           currentShakeIntensity,
           baseForce * decay
@@ -86,11 +72,13 @@ export class RenderSystem {
     let shakeX = 0;
     let shakeY = 0;
 
-    // Aplica o tremor se houver intensidade
     if (currentShakeIntensity > 0.5) {
       shakeX = (Math.random() - 0.5) * currentShakeIntensity;
       shakeY = (Math.random() - 0.5) * currentShakeIntensity;
     }
+
+    // ============================================================
+    // 🖌️ DESENHO (RENDER)
     // ============================================================
 
     this.ctx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
@@ -102,7 +90,7 @@ export class RenderSystem {
     // 2. Desenha terreno
     this.ctx.drawImage(this.terrainCanvas, 0, 0);
 
-    // 3. Organiza entidades para desenhar na ordem (z-index manual)
+    // 3. Organiza entidades
     const renderables = world.query(["position", "renderable"]);
     const tanks = [];
     const projectiles = [];
@@ -203,7 +191,7 @@ export class RenderSystem {
       this.ctx.restore();
     });
 
-    // 6. Desenha EXPLOSÕES (Loop Estilo Arcade)
+    // 6. Desenha EXPLOSÕES (COM VISUAL EFFECTS MODULAR)
     explosions.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
@@ -217,25 +205,38 @@ export class RenderSystem {
         const frameData = animation.getCurrentFrame();
 
         if (frameData) {
+          const totalFrames = animation.spriteSheet.totalFrames;
+          const currentFrame = animation.currentFrame;
+          const progress = currentFrame / totalFrames; // 0.0 a 1.0
           const scale = rend.scale || 1.0;
 
-          // Micro-Pop: Aumenta 15% nos primeiros frames para dar impacto visual instantâneo
-          let impactBonus = 1.0;
-          if (animation.currentFrame <= 1) {
-            impactBonus = 1.15;
-          }
+          // ===========================================
+          // 🎨 USANDO A CLASSE VISUAL EFFECTS
+          // ===========================================
 
-          const finalScale = scale * impactBonus;
-          const drawWidth = frameData.sw * finalScale;
-          const drawHeight = frameData.sh * finalScale;
+          // 1. Calcula escala elástica
+          const dynamicScale = VisualEffects.getElasticScale(scale, progress);
 
-          // Centralização precisa
+          // 2. Aplica Fade Out (mexe no globalAlpha)
+          VisualEffects.applyFadeOut(this.ctx, progress);
+
+          // 3. Aplica Neon/Tremor (mexe no composite e rotate)
+          VisualEffects.applyNeonGlow(
+            this.ctx,
+            animation.spriteSheet.image.src
+          );
+
+          // ===========================================
+
+          const drawWidth = frameData.sw * dynamicScale;
+          const drawHeight = frameData.sh * dynamicScale;
+
+          // Centralização e Offset
           let drawX = -drawWidth / 2;
           let drawY = -drawHeight / 2;
 
-          // Ajuste de offset manual (se houver no config)
-          if (rend.offsetX) drawX += rend.offsetX * impactBonus;
-          if (rend.offsetY) drawY += rend.offsetY * impactBonus;
+          if (rend.offsetX) drawX += rend.offsetX * dynamicScale;
+          if (rend.offsetY) drawY += rend.offsetY * dynamicScale;
 
           this.ctx.drawImage(
             frameData.image,
@@ -256,7 +257,7 @@ export class RenderSystem {
 
     this.ctx.restore();
 
-    // 7. HUD e Debug (Não afetados pelo Shake)
+    // 7. HUD e Debug
     const players = world.query(["playerControl"]);
     if (players.length > 0) {
       this.drawHUD(players[0].components.playerControl);
@@ -316,44 +317,24 @@ export class RenderSystem {
   }
 
   drawHUD(ctrl) {
-    // Em vez de desenhar no Canvas, atualizamos o HTML
-    // Isso é mais rápido e fica mais bonito
-
     const powerBar = document.getElementById("power-fill");
     const powerText = document.getElementById("power-text");
 
     if (powerBar && powerText) {
-      // Limita a força visualmente em 100%
       const visualPower = Math.min(ctrl.power, 100);
-
-      // Atualiza a largura da div colorida
       powerBar.style.width = `${visualPower}%`;
-
-      // Atualiza o número
       powerText.innerText = Math.floor(visualPower);
+
       const angleNeedle = document.getElementById("angle-needle");
       const angleText = document.getElementById("angle-text");
 
       if (angleNeedle && angleText) {
         angleText.innerText = Math.floor(ctrl.angle);
-
-        // LÓGICA DE ROTAÇÃO:
-        // No CSS, desenhamos a agulha apontando para CIMA (0 graus visual).
-        // No Jogo:
-        // 90 graus = Mira pra Cima
-        // 0 graus  = Mira pra Direita
-
-        // Se o ângulo do jogo é 90, queremos rotação 0 (agulha em pé).
-        // Se o ângulo do jogo é 0, queremos rotação 90 (agulha deitada pra direita).
-
         const rotation = 90 - ctrl.angle;
-
-        // Mantemos o translate(-50%, -100%) para a agulha ficar centralizada
         angleNeedle.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
       }
     }
 
-    // Se quiser manter o Ângulo e Arma desenhados no Canvas, pode manter aqui:
     this.ctx.fillStyle = "white";
     this.ctx.font = "16px sans-serif";
     this.ctx.fillText(`Arma: ${WEAPON_DB[ctrl.weaponId].name}`, 20, 30);

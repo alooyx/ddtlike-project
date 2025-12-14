@@ -115,11 +115,27 @@ export class Game {
     const resultado = await MapLoader.loadFromImage("./ddt.png");
     const { mapInstance, mapImage } = resultado;
 
-    // Redimensiona os canvas para o tamanho do mapa
-    this.mainCanvas.width = mapInstance.bound.width;
-    this.mainCanvas.height = mapInstance.bound.height;
+    // 1. O Canvas Principal define o tamanho da sua "JANELA" de jogo.
+    // Ele deve ser menor que o mapa para a câmera poder andar.
+    // Aqui fixamos em 1200x600 (padrão HD de navegador), mas pode ajustar.
+    this.mainCanvas.width = 1600;
+    this.mainCanvas.height = 900;
+
+    // 2. O Canvas de Terreno guarda o MAPA INTEIRO.
+    // Esse continua com o tamanho total da imagem (ex: 2000px, 4000px...)
     this.terrainCanvas.width = mapInstance.bound.width;
     this.terrainCanvas.height = mapInstance.bound.height;
+
+    // ===============================================================
+
+    // Desenha o mapa inicial no canvas de terreno (marrom)
+    this.tCtx.drawImage(mapImage, 0, 0);
+
+    this.gameMap = mapInstance;
+
+    console.log(
+      `✅ Mapa carregado! Mundo: ${this.terrainCanvas.width}x${this.terrainCanvas.height} | Tela: ${this.mainCanvas.width}x${this.mainCanvas.height}`
+    );
 
     // Desenha o mapa inicial no canvas de terreno (marrom)
     this.tCtx.drawImage(mapImage, 0, 0);

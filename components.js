@@ -67,6 +67,7 @@ export const Body = (width, height) => ({
   width,
   height,
   isGrounded: false, // Está tocando o chão?
+  rotation: 0, // feita para melhorar a mecanica de angulo acima de 90, e claro, game feel
 });
 
 // 💥 NOVO: Componente de Explosão

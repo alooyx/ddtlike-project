@@ -35,15 +35,12 @@ export class InputSystem {
       const pos = ent.components.position;
 
       // 1. Inicializa o "Acumulador" (Virtual) se não existir
-      // Isso permite guardar o 90.5 sem sujar o angulo real
       if (ctrl.virtualAngle === undefined) ctrl.virtualAngle = ctrl.angle;
 
       // ============================================================
       // ⚙️ SENSIBILIDADE
       // ============================================================
-      // Agora você pode controlar isso no config.js (Ex: 0.1 ou 0.2)
       const ANGLE_STEP = CONFIG.angleStep || 1;
-
       const POWER_SPEED = 0.2;
       const MOVE_SPEED = CONFIG.moveSpeed || 1.5;
 
@@ -63,25 +60,21 @@ export class InputSystem {
       let changed = false;
 
       if (this.keys["ArrowUp"]) {
-        ctrl.virtualAngle += ANGLE_STEP; // Acumula (Ex: 45.1, 45.2...)
+        ctrl.virtualAngle += ANGLE_STEP;
         changed = true;
 
-        // Loop de 360 no virtual
         if (ctrl.virtualAngle >= 360) ctrl.virtualAngle = 0;
       }
 
       if (this.keys["ArrowDown"]) {
-        ctrl.virtualAngle -= ANGLE_STEP; // Acumula
+        ctrl.virtualAngle -= ANGLE_STEP;
         changed = true;
 
-        // Loop reverso
         if (ctrl.virtualAngle < 0) ctrl.virtualAngle = 359.9;
       }
 
       if (changed) {
-        // 🔒 A TRAVA DE OURO: Math.floor
-        // Joga fora qualquer decimal. 45.9 vira 45.
-        // O jogo SÓ muda de ângulo quando completa 1 grau inteiro.
+        // Trava de Ouro: Ângulo sempre inteiro
         ctrl.angle = Math.floor(ctrl.virtualAngle);
       }
 
@@ -109,13 +102,37 @@ export class InputSystem {
     GAME_STATE.turn = "bullet";
     const pos = player.components.position;
     const ctrl = player.components.playerControl;
+    const body = player.components.body; // <--- PEGUE O BODY (Tem a rotação)
     const weaponStats = WEAPON_DB[ctrl.weaponId];
 
-    // Garantia final: Ângulo é INTEIRO
-    const finalAngle = Math.floor(ctrl.angle);
+    // 1. Ângulo da UI (Régua)
+    const uiAngle = Math.floor(ctrl.angle);
 
-    console.log(`📊 Arma: ${weaponStats.name}`);
-    console.log(`📊 Ângulo: ${finalAngle}°`);
+    // 2. Inclinação do Terreno (Calculado no PhysicsSystem)
+    // Converte de radianos (física) para graus
+    // Invertemos o sinal (-) porque no Canvas Y cresce pra baixo
+    let terrainAngle = 0;
+    if (body && body.rotation) {
+      terrainAngle = -((body.rotation * 180) / Math.PI);
+    }
+
+    // 3. CÁLCULO FINAL (SOMA TUDO)
+    let finalAngle;
+
+    if (ctrl.facingRight) {
+      // Direita: Ângulo UI + Terreno
+      finalAngle = uiAngle + terrainAngle;
+    } else {
+      // Esquerda: O terreno gira o eixo inteiro.
+      // A lógica é: (180 - UI) para virar pra esquerda, + Terreno
+      finalAngle = 180 - uiAngle + terrainAngle;
+    }
+
+    console.log(
+      `📐 UI: ${uiAngle}° | Terreno: ${terrainAngle.toFixed(
+        1
+      )}° | Final: ${finalAngle.toFixed(1)}°`
+    );
     console.log(`📊 Força: ${Math.floor(ctrl.power)}`);
 
     if (player.components.cameraFocus) {
@@ -124,11 +141,10 @@ export class InputSystem {
 
     const bullet = world.createEntity();
 
-    // 2. FÍSICA: Agora lê do CONFIG para ficar igual ao seu balanço
     const bomb = new BombObject(
       Date.now(),
       weaponStats.mass || 1,
-      CONFIG.GRAVITY || 1, // <--- ÚNICA MUDANÇA AQUI: Lê do config
+      CONFIG.GRAVITY || 1,
       0, // Vento
       0, // Ar
       weaponStats.projSize || 10,
@@ -141,23 +157,20 @@ export class InputSystem {
     const pivotX = pos.x;
     const pivotY = pos.y - 15;
 
-    let fireAngle = finalAngle;
-    if (!ctrl.facingRight) {
-      fireAngle = 180 - finalAngle;
-    }
-
-    const rad = (fireAngle * Math.PI) / 180;
+    // Converte o Ângulo Final (Graus) para Radianos para a física
+    const rad = (finalAngle * Math.PI) / 180;
 
     const startX = pivotX + Math.cos(rad) * cannonLength;
-    const startY = pivotY - Math.sin(rad) * cannonLength;
+    const startY = pivotY - Math.sin(rad) * cannonLength; // Y é invertido no canvas
 
     bomb.setXY(startX, startY);
 
     const powerPercent = ctrl.power / 100;
     const speedMagnitude = powerPercent * weaponStats.speedMult;
 
+    // Calcula velocidade usando o ângulo combinado
     const vx = Math.cos(rad) * speedMagnitude;
-    const vy = -Math.sin(rad) * speedMagnitude;
+    const vy = -Math.sin(rad) * speedMagnitude; // Y invertido
 
     bomb.setSpeedXY(vx, vy);
 

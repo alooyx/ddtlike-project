@@ -211,7 +211,7 @@ export class PhysicsSystem {
   }
 
   // =================================================================
-  // 🚶 PLAYER LOGIC (Basic Gravity)
+  // 🚶 PLAYER LOGIC (With Terrain Slope & Rotation)
   // =================================================================
   updatePlayers(world) {
     const players = world.query(["position", "body"]);
@@ -227,27 +227,65 @@ export class PhysicsSystem {
         pos.y = 100;
         pos.x = this.gameMap.width / 2; // Center map
         body.vY = 0;
+        body.rotation = 0;
       }
 
+      // --- 📐 CÁLCULO DE INCLINAÇÃO (SLOPE PHYSICS) ---
       const feetX = Math.floor(pos.x);
       const feetY = Math.floor(pos.y + body.height / 2);
 
-      // Check pixel below feet
-      const hasGround = this.gameMap.isSolid(feetX, feetY + 1);
+      // Verifica o chão um pouco à esquerda e à direita (-5 e +5 pixels)
+      // Isso nos dá dois pontos para traçar uma linha e descobrir o ângulo
+      const dist = 9;
+      const leftY = this.findGroundY(feetX - dist, feetY);
+      const rightY = this.findGroundY(feetX + dist, feetY);
 
-      if (!hasGround) {
-        // Falling
-        pos.y += 4; // Terminal velocity for player
-        body.isGrounded = false;
-      } else {
-        // Grounded
-        body.isGrounded = true;
-        // Anti-stuck: if feet inside ground, push up
-        if (this.gameMap.isSolid(feetX, feetY)) {
-          pos.y -= 1;
+      if (leftY !== null && rightY !== null) {
+        // Trigonometria: Calcula o ângulo pela diferença de altura
+        const dy = rightY - leftY;
+        const dx = dist * 2;
+
+        // Calcula a rotação alvo (o quanto o chão está inclinado)
+        const targetRotation = Math.atan2(dy, dx);
+
+        // Suavização (Lerp): Move 10% em direção ao alvo para não tremer
+        body.rotation = (body.rotation || 0) * 0.9 + targetRotation * 0.1;
+
+        // Ajusta a posição Y para a média das duas rodas (andar suave)
+        const avgY = (leftY + rightY) / 2;
+
+        // Snap to Ground: Se estiver perto (<10px), gruda no chão
+        if (Math.abs(pos.y + body.height / 2 - avgY) < 10) {
+          pos.y = avgY - body.height / 2;
+          body.isGrounded = true;
+        } else {
+          // Se o chão desceu muito rápido, cai
+          body.isGrounded = false;
         }
+      } else {
+        // Se não achou chão (buraco fundo), cai e zera a rotação
+        body.isGrounded = false;
+        body.rotation = (body.rotation || 0) * 0.9; // Volta pra 0 devagar
+      }
+
+      // Gravidade simples se não estiver no chão
+      if (!body.isGrounded) {
+        pos.y += 4;
       }
     });
+  }
+
+  // 🛠️ Helper para encontrar a superfície do chão rapidamente
+  findGroundY(x, startY) {
+    // Procura num raio vertical de 30px (pra cima e pra baixo)
+    // Otimização para não varrer o mapa todo
+    const searchRange = 30;
+    for (let y = startY - searchRange; y < startY + searchRange; y++) {
+      if (this.gameMap.isSolid(x, y)) {
+        return y;
+      }
+    }
+    return null; // Não achou chão perto (Buraco)
   }
 
   cleanupExplosions(world) {

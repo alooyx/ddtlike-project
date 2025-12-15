@@ -4,8 +4,11 @@ export class SpriteSheet {
   constructor(imagePath, frameWidth, frameHeight, totalFrames, fps = 10) {
     this.image = null;
     this.imagePath = imagePath;
+
+    // If 0 is passed, we will detect it later in load()
     this.frameWidth = frameWidth;
     this.frameHeight = frameHeight;
+
     this.totalFrames = totalFrames;
     this.fps = fps;
     this.frameDuration = 1000 / fps; // ms por frame
@@ -24,7 +27,15 @@ export class SpriteSheet {
 
       this.image.onload = () => {
         this.loaded = true;
-        console.log(`✅ Sprite sheet carregada: ${this.imagePath}`);
+        // [NEW] SMART AUTO-DETECT
+        // If width/height is 0, use the actual image dimensions
+        if (!this.frameWidth)
+          this.frameWidth = this.image.width / this.totalFrames;
+        if (!this.frameHeight) this.frameHeight = this.image.height;
+
+        console.log(
+          `✅ Loaded: ${this.imagePath} (${this.image.width}x${this.image.height}) -> Frame: ${this.frameWidth}x${this.frameHeight}`
+        );
         resolve(this);
       };
 

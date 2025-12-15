@@ -225,67 +225,100 @@ export class PhysicsSystem {
       // Respawn if falls off world
       if (pos.y > this.gameMap.height + 100) {
         pos.y = 100;
-        pos.x = this.gameMap.width / 2; // Center map
+        pos.x = this.gameMap.width / 2;
         body.vY = 0;
         body.rotation = 0;
       }
 
-      // --- 📐 CÁLCULO DE INCLINAÇÃO (SLOPE PHYSICS) ---
       const feetX = Math.floor(pos.x);
       const feetY = Math.floor(pos.y + body.height / 2);
 
-      // Verifica o chão um pouco à esquerda e à direita (-5 e +5 pixels)
-      // Isso nos dá dois pontos para traçar uma linha e descobrir o ângulo
-      const dist = 9;
-      const leftY = this.findGroundY(feetX - dist, feetY);
-      const rightY = this.findGroundY(feetX + dist, feetY);
+      // --- 1. SENSOR PROBES ---
+      // We check 3 points to create a "Bridge" effect.
+      // If the center is a hole, but sides are solid, we stay up.
+      const halfWidth = body.width / 2 - 2; // slightly inside the sprite
 
-      if (leftY !== null && rightY !== null) {
-        // Trigonometria: Calcula o ângulo pela diferença de altura
-        const dy = rightY - leftY;
-        const dx = dist * 2;
+      // CONFIG: How high can we step up? (Stairs)
+      const stepHeight = 15;
+      // CONFIG: How far down do we snap? (Slopes)
+      const snapDist = 15;
 
-        // Calcula a rotação alvo (o quanto o chão está inclinado)
-        const targetRotation = Math.atan2(dy, dx);
+      // Scan Left, Center, Right
+      const lY = this.findGroundY(
+        feetX - halfWidth,
+        feetY,
+        stepHeight,
+        snapDist
+      );
+      const cY = this.findGroundY(feetX, feetY, stepHeight, snapDist);
+      const rY = this.findGroundY(
+        feetX + halfWidth,
+        feetY,
+        stepHeight,
+        snapDist
+      );
 
-        // Suavização (Lerp): Move 10% em direção ao alvo para não tremer
-        body.rotation = (body.rotation || 0) * 0.9 + targetRotation * 0.1;
+      // Filter out HOLES (null results)
+      const contacts = [lY, cY, rY].filter((y) => y !== null);
 
-        // Ajusta a posição Y para a média das duas rodas (andar suave)
-        const avgY = (leftY + rightY) / 2;
+      if (contacts.length > 0) {
+        // --- 2. BRIDGE LOGIC ---
+        // Stand on the HIGHEST point found (Min Y is higher in Canvas)
+        const highestGroundY = Math.min(...contacts);
 
-        // Snap to Ground: Se estiver perto (<10px), gruda no chão
-        if (Math.abs(pos.y + body.height / 2 - avgY) < 10) {
-          pos.y = avgY - body.height / 2;
-          body.isGrounded = true;
+        // Snap position
+        pos.y = highestGroundY - body.height / 2;
+        body.isGrounded = true;
+        body.vY = 0;
+
+        // --- 3. SMART ROTATION ---
+        // Calculate angle only if we have wide support (Left + Right)
+        // This prevents jittering when standing on 1 pixel
+        let targetRot = 0;
+
+        if (lY !== null && rY !== null) {
+          // Normal slope
+          targetRot = Math.atan2(rY - lY, halfWidth * 2);
+        } else if (lY !== null && cY !== null) {
+          // Hanging off right edge
+          targetRot = Math.atan2(cY - lY, halfWidth);
+        } else if (cY !== null && rY !== null) {
+          // Hanging off left edge
+          targetRot = Math.atan2(rY - cY, halfWidth);
         } else {
-          // Se o chão desceu muito rápido, cai
-          body.isGrounded = false;
+          // Balancing on one point: Keep previous rotation or slowly level out
+          targetRot = body.rotation || 0;
         }
-      } else {
-        // Se não achou chão (buraco fundo), cai e zera a rotação
-        body.isGrounded = false;
-        body.rotation = (body.rotation || 0) * 0.9; // Volta pra 0 devagar
-      }
 
-      // Gravidade simples se não estiver no chão
-      if (!body.isGrounded) {
+        // Smooth rotation (Lerp)
+        body.rotation = (body.rotation || 0) * 0.8 + targetRot * 0.2;
+      } else {
+        // --- 4. FALLING ---
+        // No ground found under ANY sensor -> Free fall
+        body.isGrounded = false;
+
+        // Slowly straighten up while falling
+        body.rotation = (body.rotation || 0) * 0.9;
+
+        // Apply Gravity
         pos.y += 4;
       }
     });
   }
 
-  // 🛠️ Helper para encontrar a superfície do chão rapidamente
-  findGroundY(x, startY) {
-    // Procura num raio vertical de 30px (pra cima e pra baixo)
-    // Otimização para não varrer o mapa todo
-    const searchRange = 30;
-    for (let y = startY - searchRange; y < startY + searchRange; y++) {
+  // 🛠️ Helper: Finds first solid pixel in a specific vertical range
+  findGroundY(x, feetY, stepUp, stepDown) {
+    // Start searching from ABOVE the feet (to climb stairs)
+    const startY = feetY - stepUp;
+    // Stop searching BELOW the feet (to snap to slopes)
+    const endY = feetY + stepDown;
+
+    for (let y = startY; y <= endY; y++) {
       if (this.gameMap.isSolid(x, y)) {
-        return y;
+        return y; // Found surface!
       }
     }
-    return null; // Não achou chão perto (Buraco)
+    return null; // Hole
   }
 
   cleanupExplosions(world) {

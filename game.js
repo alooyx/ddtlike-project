@@ -14,9 +14,9 @@ import { PhysicsSystem } from "./Phy/physics.js";
 import { RenderSystem } from "./js/systems/RenderSystem.js";
 import { TerrainSystem } from "./js/systems/TerrainSystem.js";
 import { CamSystem } from "./js/systems/CamSystem.js";
-import { SpriteManager } from "./js/SpriteManager.js";
+// ✅ CRITICAL FIX: Importing SpriteAnimation from your file
+import { SpriteManager, SpriteAnimation } from "./js/SpriteManager.js";
 import { MapLoader } from "./js/MapLoader.js";
-import { Tile } from "./Maps/Tile.js";
 
 export class Game {
   constructor() {
@@ -44,26 +44,32 @@ export class Game {
     try {
       console.log("⏳ Carregando recursos...");
 
-      // 1. Carrega sprites de armas e projéteis
+      // 1. Carrega sprites (Armas + Personagem)
       await this.loadSprites();
 
-      // 2. Carrega mapa
+      // 2. Carrega Background
+      // Ensure this file exists, or comment it out if testing without background
+      this.bgImage = await this.loadImage("./ice-bg.png").catch(() => null);
+
+      // [NEW] Load UI Asset (Rule)
+      this.ruleImage = await this.loadImage("./ruler.png");
+
+      // 3. Carrega mapa
       await this.loadMap();
 
-      // 3. Inicializa sistemas (Agora a ordem está correta)
+      // 4. Inicializa sistemas
       this.initSystems();
 
-      // 4. Pré-carrega explosões e crateras
+      // 5. Pré-carrega explosões
       await this.terrainSys.preloadExplosions();
 
-      // 5. Cria entidades iniciais
+      // 6. Cria entidades
       this.createInitialEntities();
 
-      // 6. Configura UI
+      // 7. Configura UI
       this.setupUI();
 
       console.log("✅ Jogo pronto!\n");
-
       return true;
     } catch (err) {
       console.error("❌ ERRO ao inicializar:", err);
@@ -72,8 +78,19 @@ export class Game {
   }
 
   async loadSprites() {
-    console.log("🎨 Carregando sprites de armas...");
+    console.log("🎨 Carregando sprites...");
 
+    // ✅ LOAD CHARACTER
+    await this.spriteManager.loadAndRegister(
+      "player_char", // ID
+      "./character_asset/base_character.png", // Path
+      0, // Frame Width (Check your image size!)
+      0, // Frame Height
+      1, // Total Frames (1 = Static)
+      0 // FPS
+    );
+
+    // ✅ LOAD WEAPONS
     const spritesToLoad = [];
     const loadedIDs = new Set();
 
@@ -96,49 +113,43 @@ export class Game {
     if (spritesToLoad.length > 0) {
       try {
         await this.spriteManager.loadMultiple(spritesToLoad);
-        console.log(
-          `✅ ${spritesToLoad.length} sprite(s) de projéteis carregada(s)`
-        );
+        console.log(`✅ ${spritesToLoad.length} armas carregadas.`);
       } catch (err) {
-        console.warn("⚠️ Erro ao carregar sprites:", err);
+        console.warn("⚠️ Erro ao carregar armas:", err);
       }
     }
   }
 
+  loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
   async loadMap() {
     console.log("🗺️ Carregando mapa...");
-
-    const resultado = await MapLoader.loadFromImage("./ddt.png");
+    const resultado = await MapLoader.loadFromImage("./ice.png"); //
     const { mapInstance, mapImage } = resultado;
 
-    // 1. Configura tamanho da Tela (Viewport)
     this.mainCanvas.width = 1600;
     this.mainCanvas.height = 900;
-
-    // 2. Configura tamanho do Mundo (Full Map)
     this.terrainCanvas.width = mapInstance.bound.width;
     this.terrainCanvas.height = mapInstance.bound.height;
-
-    // Desenha o mapa inicial no canvas de terreno (marrom)
     this.tCtx.drawImage(mapImage, 0, 0);
-
     this.gameMap = mapInstance;
-
-    console.log(
-      `✅ Mapa carregado! Mundo: ${this.terrainCanvas.width}x${this.terrainCanvas.height} | Tela: ${this.mainCanvas.width}x${this.mainCanvas.height}`
-    );
   }
 
   initSystems() {
     console.log("⚙️ Inicializando sistemas...");
 
-    // 1. Cria o objeto compartilhado da Câmera PRIMEIRO
     const cameraState = { x: 0, y: 0, shakeX: 0, shakeY: 0 };
 
     this.inputSys = new InputSystem(this.gameMap, this.spriteManager);
     this.physicsSys = new PhysicsSystem();
 
-    // 2. Inicializa CamSystem (O Cérebro da Câmera)
     this.camSys = new CamSystem(
       cameraState,
       this.gameMap.bound.width,
@@ -147,14 +158,14 @@ export class Game {
       this.mainCanvas.height
     );
 
-    // 3. Inicializa RenderSystem (O Pintor) - Recebe o mesmo cameraState
     this.renderSys = new RenderSystem(
       this.mainCanvas,
       this.terrainCanvas,
-      cameraState
+      cameraState,
+      this.bgImage,
+      this.ruleImage
     );
 
-    // 4. Inicializa TerrainSystem
     this.terrainSys = new TerrainSystem(
       this.gameMap,
       this.tCtx,
@@ -162,7 +173,6 @@ export class Game {
       this.spriteManager
     );
 
-    // 5. Injeta dependências na Física
     this.physicsSys.setDependencies(
       this.gameMap,
       GAME_STATE,
@@ -170,43 +180,52 @@ export class Game {
       CameraFocus
     );
 
-    // Globais para debug
     window.TerrainSystem = this.terrainSys;
     window.gameMap = this.gameMap;
     window.world = this.world;
-    //window.CONFIG = (await import("./config.js")).CONFIG; // Expondo config se precisar
 
     console.log("✅ Sistemas inicializados!");
   }
 
   createInitialEntities() {
     console.log("🎮 Criando entidades...");
-
     const player = this.world.createEntity();
 
+    // Spawn point (Adjust Y=500 to ensure it's not inside a ceiling)
     const startX = this.gameMap.bound.width / 2;
-    const startY = 100;
+    const startY = 400;
 
-    // --- MUDANÇA AQUI: Variável para controlar o tamanho do tanque ---
-    const tankSize = 40; // Dobro do tamanho original (era 20)
+    // ✅ CREATE CHARACTER VISUALS
+    const spriteSheet = this.spriteManager.get("player_char");
+
+    if (spriteSheet) {
+      // Create the animation instance using the imported class
+      const anim = new SpriteAnimation(spriteSheet, true);
+
+      this.world.addComponent(player, "renderable", {
+        type: "character",
+        animation: anim,
+        scale: 0.5, // Adjust size (0.5 = 50%)
+        offsetY: 5, // Adjust feet alignment
+        color: "white",
+      });
+    } else {
+      console.error("❌ Sprite 'player_char' not found! Using fallback box.");
+      this.world.addComponent(
+        player,
+        "renderable",
+        Renderable("tank", "#adff2f", 40)
+      );
+    }
 
     this.world.addComponent(player, "position", Position(startX, startY));
-
-    // Usa tankSize para o Renderable (Visual)
-    this.world.addComponent(
-      player,
-      "renderable",
-      Renderable("tank", "#adff2f", tankSize)
-    );
-
     this.world.addComponent(player, "playerControl", PlayerControl());
     this.world.addComponent(player, "cameraFocus", CameraFocus());
 
-    // Usa tankSize para o Body (Física/Colisão)
-    this.world.addComponent(player, "body", Body(tankSize, tankSize));
+    // Physics Body
+    this.world.addComponent(player, "body", Body(40, 40));
 
     this.player = player;
-
     console.log("✅ Player criado!");
   }
 
@@ -223,29 +242,23 @@ export class Game {
 
   start() {
     if (this.isRunning) return;
-
     this.isRunning = true;
-    console.log("🚀 Iniciando game loop...\n");
+    console.log("🚀 Iniciando game loop...");
     this.loop();
   }
 
   loop() {
     if (!this.isRunning) return;
-
-    // Ordem de atualização: Input -> Física -> Câmera -> Render
     this.inputSys.update(this.world);
     this.physicsSys.update(this.world);
-    this.camSys.update(this.world); // Atualiza a posição da câmera
-    this.renderSys.update(this.world); // Desenha usando a posição atualizada
-
+    this.camSys.update(this.world);
+    this.renderSys.update(this.world);
     this.world.cleanup();
-
     requestAnimationFrame(() => this.loop());
   }
 
   stop() {
     this.isRunning = false;
-    console.log("⏸️ Jogo pausado");
   }
 
   reset() {
@@ -254,6 +267,5 @@ export class Game {
     GAME_STATE.turn = "player";
     this.createInitialEntities();
     this.start();
-    console.log("🔄 Jogo resetado");
   }
 }

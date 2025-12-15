@@ -4,12 +4,14 @@ import { WEAPON_DB } from "../../config.js";
 import { VisualEffects } from "../utils/VisualEffects.js";
 
 export class RenderSystem {
-  constructor(mainCanvas, terrainCanvas, cameraState) {
+  constructor(mainCanvas, terrainCanvas, cameraState, bgImage, ruleImage) {
     this.mainCanvas = mainCanvas;
     this.terrainCanvas = terrainCanvas;
     this.ctx = mainCanvas.getContext("2d");
     this.camera = cameraState;
     this.lastTime = performance.now();
+    this.bgImage = bgImage;
+    this.ruleImage = ruleImage;
   }
 
   update(world) {
@@ -17,20 +19,53 @@ export class RenderSystem {
     const deltaTime = currentTime - this.lastTime;
     this.lastTime = currentTime;
 
-    // 1. Limpa e Prepara
+    // 1. Clear Screen
     this.ctx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+
+    // 2. Draw Background (Parallax)
+    if (this.bgImage) {
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.8; // Transparency for background
+
+      const parallaxSpeed = 0.3;
+      const bgW = this.bgImage.width;
+      // Handle infinite scrolling correctly even if x is negative
+      const offsetX = (Math.abs(this.camera.x) * parallaxSpeed) % bgW;
+
+      // Image 1
+      this.ctx.drawImage(
+        this.bgImage,
+        -offsetX,
+        0,
+        bgW,
+        this.mainCanvas.height
+      );
+
+      // Image 2 (Fill the gap)
+      if (offsetX > 0) {
+        this.ctx.drawImage(
+          this.bgImage,
+          bgW - offsetX,
+          0,
+          bgW,
+          this.mainCanvas.height
+        );
+      }
+      this.ctx.restore();
+    }
+
     this.ctx.save();
 
-    // 2. Aplica Câmera
+    // 3. Apply Camera
     this.ctx.translate(
       -this.camera.x + this.camera.shakeX,
       -this.camera.y + this.camera.shakeY
     );
 
-    // 3. Desenha Mundo
+    // 4. Draw Terrain
     this.ctx.drawImage(this.terrainCanvas, 0, 0);
 
-    // 4. Organiza Entidades
+    // 5. Organize Entities
     const renderables = world.query(["position", "renderable"]);
     const tanks = [];
     const projectiles = [];
@@ -47,7 +82,7 @@ export class RenderSystem {
       }
     });
 
-    // 5. Desenha TANKS
+    // 6. Draw Characters (Tanks)
     tanks.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
@@ -56,46 +91,74 @@ export class RenderSystem {
       this.ctx.save();
       this.ctx.translate(pos.x, pos.y);
 
-      // --- A. ROTAÇÃO DO TERRENO ---
+      // --- Rotation & Mirroring ---
       if (ent.components.body) {
         let visualRot = ent.components.body.rotation;
         if (ctrl && !ctrl.facingRight) visualRot = -visualRot;
         this.ctx.rotate(visualRot);
       }
 
-      // --- B. ESPELHAMENTO ---
       if (ctrl && !ctrl.facingRight) {
         this.ctx.scale(-1, 1);
       }
 
-      // --- C. DESENHA O CORPO ---
-      this.ctx.fillStyle = rend.color;
-      this.ctx.fillRect(-10, -15, 20, 15);
-      this.ctx.fillStyle = "blue";
-      this.ctx.fillRect(-2, 0, 4, 4);
+      // --- DRAW BODY ---
+      if (rend.type === "character") {
+        // [A] Character Sprite
+        if (rend.animation) {
+          rend.animation.update(deltaTime);
+          const frame = rend.animation.getCurrentFrame();
 
-      // --- D. DESENHA A ARMA (TRAVADA) ---
+          if (frame && frame.image) {
+            const scale = rend.scale || 1.0;
+            const w = frame.sw * scale;
+            const h = frame.sh * scale;
+            const offY = rend.offsetY || 0;
+
+            this.ctx.drawImage(
+              frame.image,
+              frame.sx,
+              frame.sy,
+              frame.sw,
+              frame.sh,
+              -w / 2,
+              -h + 15 + offY,
+              w,
+              h
+            );
+          } else {
+            // Error Box
+            this.ctx.fillStyle = "magenta";
+            this.ctx.fillRect(-10, -20, 20, 40);
+          }
+        }
+      } else {
+        // [B] Fallback Box (Restored this safety check!)
+        this.ctx.fillStyle = rend.color || "green";
+        this.ctx.fillRect(-10, -15, 20, 15);
+        this.ctx.fillStyle = "blue";
+        this.ctx.fillRect(-2, 0, 4, 4);
+      }
+
+      // --- Weapon & Aim ---
       if (ctrl) {
         const weaponStats = WEAPON_DB[ctrl.weaponId];
         if (weaponStats && weaponStats.weaponSprite) {
           this.drawWeaponBackpack(weaponStats.weaponSprite, ctrl.angle);
         }
-      }
-
-      // --- E. DESENHA A MIRA ---
-      if (ctrl) {
         this.drawAim(ctrl);
       }
 
       this.ctx.restore();
     });
 
-    // 6. Desenha PROJÉTEIS
+    // 7. Draw Projectiles
     projectiles.forEach((ent) => {
       const pos = ent.components.position;
       const rend = ent.components.renderable;
       this.ctx.save();
       this.ctx.translate(pos.x, pos.y);
+
       if (rend.type === "sprite") {
         const animation = rend.animation;
         animation.update(deltaTime);
@@ -123,42 +186,40 @@ export class RenderSystem {
       this.ctx.restore();
     });
 
-    // 7. Desenha EXPLOSÕES
+    // 8. Draw Explosions
     explosions.forEach((ent) => {
+      // (Keep your existing explosion code here)
       const pos = ent.components.position;
       const rend = ent.components.renderable;
       this.ctx.save();
       this.ctx.translate(pos.x, pos.y);
-      if (rend.type === "sprite") {
-        const animation = rend.animation;
-        animation.update(deltaTime);
-        const frameData = animation.getCurrentFrame();
-        if (frameData) {
+      if (rend.type === "sprite" && rend.animation) {
+        rend.animation.update(deltaTime);
+        const frame = rend.animation.getCurrentFrame();
+        if (frame) {
           const progress =
-            animation.currentFrame / animation.spriteSheet.totalFrames;
+            rend.animation.currentFrame /
+            rend.animation.spriteSheet.totalFrames;
           const scale = rend.scale || 1.0;
           const dynamicScale = VisualEffects.getElasticScale(scale, progress);
           VisualEffects.applyFadeOut(this.ctx, progress);
           VisualEffects.applyNeonGlow(
             this.ctx,
-            animation.spriteSheet.image.src
+            rend.animation.spriteSheet.image.src
           );
-          const dW = frameData.sw * dynamicScale;
-          const dH = frameData.sh * dynamicScale;
-          let dX = -dW / 2;
-          let dY = -dH / 2;
-          if (rend.offsetX) dX += rend.offsetX * dynamicScale;
-          if (rend.offsetY) dY += rend.offsetY * dynamicScale;
+
+          const w = frame.sw * dynamicScale;
+          const h = frame.sh * dynamicScale;
           this.ctx.drawImage(
-            frameData.image,
-            frameData.sx,
-            frameData.sy,
-            frameData.sw,
-            frameData.sh,
-            dX,
-            dY,
-            dW,
-            dH
+            frame.image,
+            frame.sx,
+            frame.sy,
+            frame.sw,
+            frame.sh,
+            -w / 2,
+            -h / 2,
+            w,
+            h
           );
         }
       }
@@ -167,88 +228,107 @@ export class RenderSystem {
 
     this.ctx.restore();
 
-    // 8. HUD
+    // 9. Draw UI
     this.drawUI(world);
   }
 
   // =========================================================================
-  // 🖥️ UI / HUD / HELPERS
+  // 🖥️ UI (Performance Optimized)
   // =========================================================================
 
   drawUI(world) {
     const players = world.query(["playerControl"]);
-    if (players.length > 0) {
-      const ctrl = players[0].components.playerControl;
-      const body = players[0].components.body;
-      this.updateHUD(ctrl, body);
+    if (players.length === 0) return;
+
+    const ctrl = players[0].components.playerControl;
+
+    // --- 📏 BARRA DE FORÇA (CANVAS) ---
+    if (this.ruleImage) {
+      // 1. Configuração de Tamanho
+      // A régua vai ter 800px de largura na tela (pode diminuir se ficar muito grande)
+      const ruleW = 700;
+      const scale = ruleW / this.ruleImage.width;
+      const ruleH = this.ruleImage.height * scale;
+
+      // Posição: Centralizado embaixo
+      const x = (this.mainCanvas.width - ruleW) / 2;
+      const y = this.mainCanvas.height - ruleH - 10; // 10px do fundo
+
+      // 2. Desenha a Imagem da Régua (Fundo)
+      this.ctx.drawImage(this.ruleImage, x, y, ruleW, ruleH);
+
+      // 3. Desenha a Barra Colorida (Preenchimento)
+      // === CALIBRAGEM FINA PARA O SEU "rule.jpg" ===
+      // Baseado na imagem: O slot escuro começa perto do 0 e vai até o 100
+      const barX = x + ruleW * 0.03; // 12.8% da esquerda (ajuste do "0")
+      const barY = y + ruleH * 0.316; // 36% do topo (altura do slot)
+      const maxBarW = ruleW * 0.938; // 79.5% de largura (distância do 0 ao 100)
+      const barH = ruleH * 0.55; // 28% de altura (grossura do slot)
+
+      // Calcula largura atual baseada na força (0 a 100)
+      const currentBarW = (ctrl.power / 100) * maxBarW;
+
+      if (currentBarW > 0) {
+        // Criar Gradiente (Amarelo -> Laranja -> Vermelho)
+        const grad = this.ctx.createLinearGradient(barX, 0, barX + maxBarW, 0);
+        grad.addColorStop(0, "#ffeb3b"); // Amarelo
+        grad.addColorStop(0.6, "#ff9800"); // Laranja
+        grad.addColorStop(1, "#ff5722"); // Vermelho
+
+        this.ctx.fillStyle = grad;
+
+        // Desenha a barra
+        this.ctx.fillRect(barX, barY, currentBarW, barH);
+
+        // (Opcional) Efeito de Brilho/Neon
+        this.ctx.shadowBlur = 15;
+        this.ctx.shadowColor = "#ff5722";
+        this.ctx.fillRect(barX, barY, currentBarW, barH);
+        this.ctx.shadowBlur = 0; // Resetar para não bugar o resto
+      }
+
+      // === DEBUG: DESCOMENTE PARA VER A ÁREA DE PREENCHIMENTO ===
+      // Se a barra estiver torta, ative isso para ver o retângulo verde de guia
+      //this.ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+      //this.ctx.fillRect(barX, barY, maxBarW, barH);
+      // ==========================================================
+
+      // 4. Desenha o Número da Força
+      // Coloca o número flutuando acima da régua, alinhado com a força atual
+      this.ctx.fillStyle = "white";
+      this.ctx.font = "bold 22px Arial";
+      this.ctx.shadowColor = "black";
+      this.ctx.shadowBlur = 4;
+      this.ctx.textAlign = "center";
+
+      // O número segue a ponta da barra (estilo DDTank)
+      // Se a força for 0, fica no inicio. Se for 100, fica no fim.
+      const numberX = barX + currentBarW;
+      this.ctx.fillText(Math.floor(ctrl.power), numberX, y + 15); // y+15 coloca logo acima da barra
+
+      this.ctx.shadowBlur = 0;
+      this.ctx.textAlign = "left"; // Reset
     }
+
+    // Atualiza Ângulo e Debug
+    this.updateAngleUI(ctrl, players[0].components.body);
     this.updateDebugPanel(world);
   }
 
-  updateHUD(ctrl, body) {
-    const baseAngle = ctrl.angle || 0;
-
-    // Cálculo da inclinação do terreno
-    const rawRotation = body && body.rotation ? body.rotation : 0;
-    let terrainAngle = -((rawRotation * 180) / Math.PI);
-
-    // Se olhar para a esquerda, a inclinação inverte matematicamente
-    if (!ctrl.facingRight) {
-      terrainAngle = -terrainAngle;
-    }
-
-    const trueAngle = Math.floor(baseAngle + terrainAngle);
-
-    // Barras de Força
-    const powerBar = document.getElementById("power-fill");
-    const powerText = document.getElementById("power-text");
-    if (powerBar && powerText) {
-      const visualPower = Math.min(ctrl.power, 100);
-      powerBar.style.width = `${visualPower}%`;
-      powerText.innerText = Math.floor(visualPower);
-    }
-
-    // ============================================================
-    // 🧭 AGULHA COM TELEPORTE NA VIRADA
-    // ============================================================
+  updateAngleUI(ctrl, body) {
     const angleNeedle = document.getElementById("angle-needle");
     const angleText = document.getElementById("angle-text");
-
     if (angleNeedle && angleText) {
+      const rawRotation = body && body.rotation ? body.rotation : 0;
+      let terrainAngle = -((rawRotation * 180) / Math.PI);
+      if (!ctrl.facingRight) terrainAngle = -terrainAngle;
+
+      const trueAngle = Math.floor(ctrl.angle + terrainAngle);
       angleText.innerText = trueAngle;
 
-      // 1. Calcula a Rotação do Ponteiro
-      let rotation;
-      if (ctrl.facingRight) {
-        rotation = 90 - trueAngle; // Direita (0=3h, 90=12h)
-      } else {
-        rotation = -90 + trueAngle; // Esquerda (0=9h, 90=12h)
-      }
-
-      // 2. LÓGICA DO TELEPORTE (SNAP)
-      // Verifica se o lado mudou desde o último frame
-      if (this.lastFacingRight !== ctrl.facingRight) {
-        // SE MUDOU DE LADO:
-        // Desliga a animação imediatamente para "teleportar"
-        angleNeedle.style.transition = "none";
-      } else {
-        // SE É O MESMO LADO (Movimento normal do ângulo):
-        // Mantém suave (supondo que você queira suavidade ao mirar)
-        angleNeedle.style.transition = "transform 0.1s linear";
-      }
-
-      // 3. Aplica a transformação
+      let rotation = ctrl.facingRight ? 90 - trueAngle : -90 + trueAngle;
       angleNeedle.style.transform = `translate(-50%, -100%) rotate(${rotation}deg)`;
-
-      // 4. Atualiza o estado para o próximo frame
-      this.lastFacingRight = ctrl.facingRight;
     }
-
-    // Texto de Debug
-    this.ctx.fillStyle = "white";
-    this.ctx.font = "16px sans-serif";
-    this.ctx.fillText(`Arma: ${WEAPON_DB[ctrl.weaponId].name}`, 20, 30);
-    this.ctx.fillText(`Ângulo: ${trueAngle}°`, 20, 50);
   }
 
   drawWeaponBackpack(weaponSprite, angle = 0) {
@@ -273,14 +353,6 @@ export class RenderSystem {
 
     this.ctx.save();
     this.ctx.translate(offsetX, offsetY);
-
-    // =================================================================
-    // 🔒 ARMA TRAVADA (Lock Weapon) - Comentado para travar visualmente
-    // =================================================================
-    // const rad = (angle * Math.PI) / 180;
-    // this.ctx.rotate(-rad);
-    // =================================================================
-
     this.ctx.drawImage(weaponSprite.image, -w / 2, -h / 2, w, h);
     this.ctx.restore();
   }
@@ -297,10 +369,9 @@ export class RenderSystem {
 
   updateDebugPanel(world) {
     const projectiles = world.query(["bombComponent"]);
-    if (document.getElementById("debug-content")) {
-      document.getElementById(
-        "debug-content"
-      ).innerHTML = `Entidades: ${world.entities.length} | Projéteis: ${projectiles.length}`;
+    const debugEl = document.getElementById("debug-content");
+    if (debugEl) {
+      debugEl.innerHTML = `Entidades: ${world.entities.length} | Projéteis: ${projectiles.length}`;
     }
   }
 }

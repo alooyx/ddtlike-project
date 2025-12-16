@@ -32,34 +32,24 @@ export class RenderSystem {
       // Handle infinite scrolling correctly even if x is negative
       const offsetX = (Math.abs(this.camera.x) * parallaxSpeed) % bgW;
 
-      // Image 1
-      this.ctx.drawImage(
-        this.bgImage,
-        -offsetX,
-        0,
-        bgW,
-        this.mainCanvas.height
-      );
+      // [NEW FIXED CODE]
+      const drawBG = (x) => {
+        this.ctx.drawImage(this.bgImage, x, 0, bgW, this.mainCanvas.height);
+      };
 
-      // Image 2 (Fill the gap)
-      if (offsetX > 0) {
-        this.ctx.drawImage(
-          this.bgImage,
-          bgW - offsetX,
-          0,
-          bgW,
-          this.mainCanvas.height
-        );
-      }
+      // Draw Center, then check BOTH sides to fill gaps
+      drawBG(-offsetX);
+      if (offsetX > 0) drawBG(bgW - offsetX); // Fill Right gap
+      if (offsetX < 0) drawBG(-bgW - offsetX); // Fill Left gap (New!)
       this.ctx.restore();
     }
 
     this.ctx.save();
 
-    // 3. Apply Camera
+    // [NEW FIXED CODE] - Adds Math.floor()
     this.ctx.translate(
-      -this.camera.x + this.camera.shakeX,
-      -this.camera.y + this.camera.shakeY
+      Math.floor(-this.camera.x + this.camera.shakeX),
+      Math.floor(-this.camera.y + this.camera.shakeY)
     );
 
     // 4. Draw Terrain
@@ -246,7 +236,7 @@ export class RenderSystem {
     if (this.ruleImage) {
       // 1. Configuração de Tamanho
       // A régua vai ter 800px de largura na tela (pode diminuir se ficar muito grande)
-      const ruleW = 700;
+      const ruleW = 800;
       const scale = ruleW / this.ruleImage.width;
       const ruleH = this.ruleImage.height * scale;
 

@@ -39,7 +39,7 @@ export const IMPACT_TYPES = {
   crater_custom: { radius: 50 },
 
   LIGHTNING: {
-    craterId: "shoq2",
+    craterId: "crater_light",
     radius: 20,
     damage: 60,
   },
